@@ -71,7 +71,7 @@ test('peripheral enumeration omits disconnected devices and handles WMI fallback
     { Name: 'Offline mouse', PNPClass: 'Mouse', Status: 'Error', PNPDeviceID: 'USB\\old' },
     { Name: 'Wireless keyboard', PNPClass: 'Keyboard', Status: 'OK', PNPDeviceID: 'BTHENUM\\private', ConfigManagerErrorCode: 0 },
   ] }) }).scanPeripherals();
-  assert.deepEqual(result.peripherals, [{ name: 'Wireless keyboard', type: 'Keyboard', connection: 'Bluetooth' }]);
+  assert.deepEqual(result.peripherals, [{ name: 'Wireless keyboard', type: 'Keyboard', connection: 'Bluetooth', identification: 'generic', interfaceCount: 1, interfaces: ['Wireless keyboard'] }]);
 });
 
 test('status reader uses a read-only command and returns each allowlisted setting', async () => {

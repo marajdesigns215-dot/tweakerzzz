@@ -110,7 +110,7 @@ with sync_playwright() as p:
       window.__testScan = { failDevices: false, partial: false, enable: id => enabled.add(id) };
       window.tweaker = {
         scan: async () => ({cpu:{name:'AMD Ryzen 9 5900X',cores:12,threads:24},gpu:{name:'NVIDIA GeForce RTX 4060',vramGB:null},memory:{totalGB:32,speedMHz:window.__testScan.partial ? null : 3200},os:{name:'Windows 11 Pro',build:'26200'},storage:window.__testScan.partial ? {totalGB:null,freeGB:null} : {totalGB:2740,freeGB:1550},peripherals:[{name:'Test Mouse',type:'Mouse',connection:'USB'}],scannedAt:new Date().toISOString(),warnings:window.__testScan.partial ? [{component:'storage',message:'Fixture provider unavailable'}] : []}),
-        scanPeripherals: async () => { if(window.__testScan.failDevices) throw new Error('Fixture peripheral provider unavailable'); return {peripherals:[{name:'Test Mouse',type:'Mouse',connection:'USB'},{name:'Test Keyboard',type:'Keyboard',connection:'HID'}],scannedAt:new Date().toISOString(),warnings:[]}; },
+        scanPeripherals: async () => { if(window.__testScan.failDevices) throw new Error('Fixture peripheral provider unavailable'); return {peripherals:[{name:'Test Mouse',type:'Mouse',connection:'USB'},{name:'Test Keyboard',type:'Keyboard',connection:'HID'},{name:'Logitech G203 Gaming Mouse',type:'Mouse',connection:'USB',identification:'usb-id',usbId:'046D:C084',manufacturer:'Logitech',interfaceCount:1,interfaces:['HID-compliant mouse']},{name:'EPOMAKER EP-84',type:'Keyboard',connection:'USB',identification:'reported',interfaceCount:2,interfaces:['HID Keyboard Device']},{name:'1080P Pro Stream',type:'Camera',connection:'USB',identification:'reported'},{name:'CORSAIR VOID ELITE Wireless Gaming Headset',type:'Audio',connection:'USB',identification:'reported',interfaceCount:2,interfaces:['Headset Earphone','Headset Microphone']},{name:'HID Keyboard Device',type:'Keyboard',connection:'HID',identification:'generic'}],scannedAt:new Date().toISOString(),warnings:[]}; },
         getTweakStatus: async () => ({checkedAt:new Date().toISOString(),tweaks:__IDS__.map(id=>({id,status:enabled.has(id)?'enabled':id==='game-dvr'?'not-enabled':'not-configured',message:enabled.has(id)?'Matches saved Windows settings':'Preference is not configured'}))}),
         applyTweaks: async ids => {previous = new Set(enabled);ids.forEach(id=>enabled.add(id));backups=[{id:'a'.repeat(32),createdAt:new Date().toISOString(),count:ids.length}];return {backupId:'a'.repeat(32),applied:ids,message:'Fixture changes applied'}},
         restoreBackup: async () => {enabled = new Set(previous);backups=[];return {message:'Fixture restored'}},
@@ -132,6 +132,32 @@ with sync_playwright() as p:
     desktop.get_by_role('button', name='Scan devices', exact=True).click()
     expect(desktop.locator('.device-list')).to_contain_text('Test Keyboard')
     expect(desktop.get_by_role('heading', name='Peripherals', exact=True)).to_be_visible()
+    expect(desktop.locator('.device-card')).to_have_count(6)
+    desktop.locator('.device-card').filter(has_text='Logitech G203').click()
+    expect(desktop.get_by_role('heading', name='Logitech G102 / G203', exact=True)).to_be_visible()
+    with desktop.expect_download() as transfer:
+        desktop.get_by_role('button', name='Export device settings guide', exact=True).click()
+    assert '1,000 Hz' in Path(transfer.value.path()).read_text()
+    desktop.locator('.device-card').filter(has_text='EPOMAKER EP-84').click()
+    expect(desktop.get_by_role('heading', name='Epomaker EP-84', exact=True)).to_be_visible()
+    desktop.locator('.device-card').filter(has_text='1080P Pro Stream').click()
+    expect(desktop.get_by_role('heading', name='Camera starting settings', exact=True)).to_be_visible()
+    desktop.locator('.device-card').filter(has_text='CORSAIR VOID').click()
+    expect(desktop.get_by_role('heading', name='Corsair VOID headset', exact=True)).to_be_visible()
+    desktop.screenshot(path=str(ARTIFACTS / 'peripherals-desktop.png'), full_page=True)
+    desktop.get_by_role('button', name='Show generic Windows entries (1)', exact=True).click()
+    expect(desktop.locator('.device-card')).to_have_count(7)
+    desktop.get_by_role('button', name='Hide generic Windows entries (1)', exact=True).click()
+    expect(desktop.locator('.device-card')).to_have_count(6)
+    with desktop.expect_download() as transfer:
+        desktop.get_by_role('button', name='Export device report', exact=True).click()
+    device_report = json.loads(Path(transfer.value.path()).read_text())
+    assert len(device_report['peripherals']) == 7
+    assert any(item.get('usbId') == '046D:C084' for item in device_report['peripherals'])
+    desktop.set_viewport_size({'width':390,'height':844})
+    assert desktop.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Device recommendations overflow on mobile'
+    desktop.screenshot(path=str(ARTIFACTS / 'peripherals-mobile.png'), full_page=True)
+    desktop.set_viewport_size({'width':1440,'height':1000})
     desktop.evaluate('window.__testScan.failDevices = true')
     desktop.get_by_role('button', name='Scan devices', exact=True).click()
     expect(desktop.get_by_role('alert')).to_contain_text('Fixture peripheral provider unavailable')
@@ -169,5 +195,5 @@ with sync_playwright() as p:
     desktop.get_by_role('button', name='Keep this display mode', exact=True).click()
     expect(desktop.get_by_role('status')).to_contain_text('Display mode confirmed')
     assert not errors, errors
-    print('PASS: mocked Windows bridge scan/apply/restore/resolution UI integration (not a native Windows test)')
+    print('PASS: device recognition UI, matching guides, generic filtering, exports, and mocked Windows scan/apply/restore/resolution integration (not a native Windows test)')
     browser.close()

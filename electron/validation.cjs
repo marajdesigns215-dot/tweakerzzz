@@ -17,6 +17,8 @@ const SETTINGS = Object.freeze({
   startup: 'ms-settings:startupapps',
   apps: 'ms-settings:appsfeatures',
   mouse: 'ms-settings:mousetouchpad',
+  keyboard: 'ms-settings:easeofaccess-keyboard',
+  camera: 'ms-settings:camera',
   sound: 'ms-settings:sound',
   network: 'ms-settings:network-status',
   power: 'ms-settings:powersleep',

@@ -4,6 +4,8 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { execFile } = require('node:child_process');
 const { nativeError } = require('./native-errors.cjs');
+const { peripheralQuery } = require('./peripheral-query.cjs');
+const { identifyPeripherals } = require('./peripherals.cjs');
 
 // These are fixed, read-only Windows commands. No renderer text, registry path,
 // file content, or downloaded .ps1 script is evaluated by the inventory scanner.
@@ -14,16 +16,16 @@ const QUERIES = Object.freeze({
   os: cim('Win32_OperatingSystem', 'Caption,BuildNumber'),
   gpu: cim('Win32_VideoController', 'Name,PNPDeviceID'),
   storage: cim('Win32_LogicalDisk', 'Size,FreeSpace', 'DriveType=3'),
-  peripherals: "try { Get-PnpDevice -PresentOnly -Class Mouse,Keyboard,AudioEndpoint,HIDClass -ErrorAction Stop | Select-Object FriendlyName,Class,InstanceId,Status } catch { " + cim('Win32_PnPEntity', 'Name,PNPClass,PNPDeviceID,Status,ConfigManagerErrorCode', 'PNPClass=\"Mouse\" OR PNPClass=\"Keyboard\" OR PNPClass=\"AudioEndpoint\" OR PNPClass=\"HIDClass\"') + ' }',
+  peripherals: peripheralQuery,
 });
 
-function execute(file, args) {
+function execute(file, args, { timeoutMs = 12000 } = {}) {
   return new Promise((resolve, reject) => {
-    execFile(file, args, { windowsHide: true, shell: false, timeout: 12000, maxBuffer: 2 * 1024 * 1024, encoding: 'utf8' }, (error, stdout, stderr) => {
+    execFile(file, args, { windowsHide: true, shell: false, timeout: timeoutMs, maxBuffer: 2 * 1024 * 1024, encoding: 'utf8' }, (error, stdout, stderr) => {
       if (error) {
         let detail = stderr || error.message;
         try { detail = JSON.parse(stdout.trim()).error || detail; } catch { /* Prefer stderr when the command could not start. */ }
-        return reject(nativeError(error.killed ? 'The Windows query did not respond within 12 seconds.' : detail, 'Windows query'));
+        return reject(nativeError(error.killed ? `The Windows query did not respond within ${timeoutMs / 1000} seconds.` : detail, 'Windows query'));
       }
       resolve(stdout);
     });
@@ -41,34 +43,16 @@ function createScanner({ host = os, run = execute, exists = fs.existsSync, envir
   async function query(component) {
     if (!Object.hasOwn(QUERIES, component)) throw new Error('Unsupported inventory query.');
     const command = `$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue'; [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); try { $data = @(& { ${QUERIES[component]} }); [Console]::Out.WriteLine((@{ ok = $true; data = $data } | ConvertTo-Json -Depth 5 -Compress)) } catch { [Console]::Out.WriteLine((@{ ok = $false; error = $_.Exception.Message } | ConvertTo-Json -Compress)); exit 1 }`;
-    const raw = await run(powershell, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command]);
+    const raw = await run(powershell, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command], { timeoutMs: component === 'peripherals' ? 25000 : 12000 });
     let parsed;
     try { parsed = JSON.parse(raw.replace(/^\uFEFF/, '').trim()); } catch { throw new Error('The Windows inventory provider returned an invalid response.'); }
     if (!parsed.ok) throw nativeError(parsed.error, component);
     if (!Array.isArray(parsed.data)) throw new Error('The Windows inventory provider did not return a device list.');
     return parsed.data.filter(item => item && typeof item === 'object');
   }
-  function devices(rows) {
-    const result = [], seen = new Set();
-    for (const device of rows) {
-      if (device.Status && device.Status !== 'OK') continue;
-      if (device.ConfigManagerErrorCode != null && Number(device.ConfigManagerErrorCode) !== 0) continue;
-      const name = text(device.FriendlyName ?? device.Name, '');
-      if (!name) continue;
-      const kind = device.Class ?? device.PNPClass;
-      const type = ({ Mouse: 'Mouse', Keyboard: 'Keyboard', AudioEndpoint: 'Audio' })[kind] || (/gamepad|game controller|xbox|dualsense|dualshock/i.test(name) ? 'Controller' : 'Other');
-      if (type === 'Other') continue;
-      const id = device.InstanceId ?? device.PNPDeviceID ?? '';
-      const connection = /^BTH|Bluetooth/i.test(id + ' ' + name) ? 'Bluetooth' : /^USB\\/i.test(id) ? 'USB' : /^HID\\/i.test(id) ? 'HID' : 'System';
-      // Keep hardware serials and device IDs out of exported reports.
-      const key = `${type}|${name}|${connection}`;
-      if (!seen.has(key)) { seen.add(key); result.push({ name, type, connection }); }
-    }
-    return result.sort((a, b) => a.name.localeCompare(b.name));
-  }
   async function scanPeripherals() {
     requireWindows();
-    try { return { peripherals: devices(await query('peripherals')), scannedAt: now(), warnings: [] }; }
+    try { return { peripherals: identifyPeripherals(await query('peripherals')), scannedAt: now(), warnings: [] }; }
     catch (error) { throw nativeError(error.message, 'Peripheral scan failed'); }
   }
   async function scanSystem() {
@@ -107,7 +91,7 @@ function createScanner({ host = os, run = execute, exists = fs.existsSync, envir
       memory: { totalGB: roundGB(ram), speedMHz: speed },
       os: { name: text(data.os[0]?.Caption, host.version()), build: text(data.os[0]?.BuildNumber, host.release()) },
       storage: { totalGB, freeGB: totalGB !== null && freeGB !== null ? Math.min(totalGB, freeGB) : null },
-      peripherals: devices(data.peripherals), scannedAt: now(), warnings,
+      peripherals: identifyPeripherals(data.peripherals), scannedAt: now(), warnings,
     };
   }
   return { scanSystem, scanPeripherals };

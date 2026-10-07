@@ -1,10 +1,20 @@
+export interface Peripheral {
+  name: string;
+  type: 'Mouse' | 'Keyboard' | 'Audio' | 'Controller' | 'Camera' | 'Other';
+  connection: string;
+  identification?: 'reported' | 'usb-id' | 'vendor-only' | 'generic';
+  manufacturer?: string;
+  usbId?: string;
+  interfaceCount?: number;
+  interfaces?: string[];
+}
 export interface SystemScan {
   cpu: { name: string; cores: number | null; threads: number | null };
   gpu: { name: string; vramGB: number | null };
   memory: { totalGB: number | null; speedMHz: number | null };
   os: { name: string; build: string };
   storage: { totalGB: number | null; freeGB: number | null };
-  peripherals: { name: string; type: 'Mouse' | 'Keyboard' | 'Audio' | 'Controller' | 'Other'; connection: string }[];
+  peripherals: Peripheral[];
   scannedAt: string;
   warnings?: ScanWarning[];
 }

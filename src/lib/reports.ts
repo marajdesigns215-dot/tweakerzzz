@@ -32,8 +32,18 @@ export function parseHardwareReport(input: unknown): SystemScan {
     storage: { totalGB, freeGB },
     peripherals: report.peripherals.map(item => {
       const p = object(item);
-      if (!['Mouse', 'Keyboard', 'Audio', 'Controller', 'Other'].includes(String(p.type))) throw new Error('Unrecognized peripheral type.');
-      return { name: text(p.name), type: p.type as SystemScan['peripherals'][number]['type'], connection: text(p.connection, 80) };
+      if (!['Mouse', 'Keyboard', 'Audio', 'Controller', 'Camera', 'Other'].includes(String(p.type))) throw new Error('Unrecognized peripheral type.');
+      if (p.identification !== undefined && !['reported', 'usb-id', 'vendor-only', 'generic'].includes(String(p.identification))) throw new Error('Invalid peripheral identification.');
+      if (p.usbId !== undefined && (typeof p.usbId !== 'string' || !/^[A-F0-9]{4}:[A-F0-9]{4}$/.test(p.usbId))) throw new Error('Invalid USB product ID.');
+      if (p.interfaceCount !== undefined && (!Number.isInteger(p.interfaceCount) || Number(p.interfaceCount) < 1 || Number(p.interfaceCount) > 10000)) throw new Error('Invalid interface count.');
+      if (p.interfaces !== undefined && (!Array.isArray(p.interfaces) || p.interfaces.length > 30)) throw new Error('Invalid interface names.');
+      return { name: text(p.name), type: p.type as SystemScan['peripherals'][number]['type'], connection: text(p.connection, 80),
+        ...(p.identification !== undefined ? { identification: p.identification as 'reported' | 'usb-id' | 'vendor-only' | 'generic' } : {}),
+        ...(p.manufacturer !== undefined ? { manufacturer: text(p.manufacturer) } : {}),
+        ...(p.usbId !== undefined ? { usbId: p.usbId as string } : {}),
+        ...(p.interfaceCount !== undefined ? { interfaceCount: p.interfaceCount as number } : {}),
+        ...(p.interfaces !== undefined ? { interfaces: (p.interfaces as unknown[]).map(value => text(value)) } : {}),
+      };
     }),
     scannedAt: date as string,
     ...(warnings !== undefined ? { warnings: (warnings as unknown[]).map(item => { const w = object(item); return { component: text(w.component, 80), message: text(w.message, 2000) }; }) } : {}),
