@@ -2,7 +2,7 @@
 
 A Windows gaming and content-creation workspace built with React, TypeScript, Vite, and Electron. Start with a hardware scan, review a plan, apply supported settings with a local backup, and compare your actual results.
 
-**Status: development build, not a completed or Windows-validated optimizer.** The browser workflow and mocked native integration have been tested. Actual Windows scanning, registry changes, display switching, and installer execution remain unverified. Direct NVIDIA vibrance control and automatic per-device vendor tuning are not implemented; those settings currently use previews or guides.
+**Status: v0.2.0 development build, not a completed or Windows-validated optimizer.** The browser workflow and mocked native integration have been tested. Actual Windows scanning, registry changes, display switching, and installer execution remain unverified. Direct NVIDIA vibrance control and automatic per-device vendor tuning are not implemented; those settings currently use previews or guides.
 
 The included reference configuration comes from the supplied screenshot: **Ryzen 9 5900X, GeForce RTX 4060 8 GB, 32 GB RAM at 3200 MHz, and Windows 11 Pro**. Reference values are labeled and are replaced by a scan or imported report; they are not measurements of the computer running the browser.
 
@@ -11,8 +11,9 @@ The included reference configuration comes from the supplied screenshot: **Ryzen
 | Feature | Behavior |
 | --- | --- |
 | Optimization library | **87 settings: 22 automatic and 65 guided**, across Gaming, Windows, Streaming, Network, Peripherals, and Privacy. Search, filter, review tradeoffs, and build a plan. |
-| Windows hardware scan | Reads CPU, GPU, RAM, Windows version, local storage, and supported peripheral inventory through Windows CIM. NVIDIA VRAM uses `nvidia-smi` when available; otherwise it remains unknown. Scan reports can be exported and imported. |
-| Automatic changes | Applies an allowlist of per-user registry preferences and, if selected and available, the existing High performance power scheme. Original state is recorded before writing. |
+| Windows hardware scan | Reads CPU/RAM directly through Node APIs, then supplements inventory through fixed, read-only CIM/PnP commands with a WMI fallback. PC and peripheral scans are separate; a failed optional provider produces a warning and unknown values instead of failing the complete report. NVIDIA VRAM uses `nvidia-smi` when available; otherwise it remains unknown. Scan reports can be exported and imported. |
+| Current Windows settings | Checks all 22 supported automatic tweaks at startup and after apply/restore. **Already configured** means stored values match; **Different settings**, **Not configured**, and **Unable to read** remain distinct. Missing preferences do not imply a particular Windows default. Guided settings remain manual. |
+| Automatic changes | Applies an allowlist of per-user registry preferences and, if selected and available, the existing High performance power scheme. Original state is recorded before writing. Settings already matching the requested values are skipped; an entirely redundant plan creates no backup. |
 | Display modes | Lists driver-advertised modes for the **primary display**. Tests resolution and refresh changes temporarily, with a **15-second confirmation deadline** and rollback when unconfirmed. Custom timings and NVIDIA scaling controls are not implemented. |
 | Display studio | Provides visual color previews and locally saved reference profiles. Actual Digital Vibrance and GPU scaling use the NVIDIA Control Panel guides; there is no integrated NVIDIA color-control API. |
 | Peripherals | Shows device information exposed by Windows and relevant setup guides. Vendor-only settings, polling rates, DPI, actuation, and firmware are adjusted in the appropriate vendor tools. |
@@ -28,15 +29,15 @@ Use **Windows 11 x64**, built-in **Windows PowerShell 5.1**, and **Node.js 24 LT
 From the repository directory:
 
 ```powershell
-npm ci
-npm run build
-npm run desktop
+npm.cmd ci
+npm.cmd run build
+npm.cmd run desktop
 ```
 
 For desktop development with Vite hot reload:
 
 ```powershell
-npm run desktop:dev
+npm.cmd run desktop:dev
 ```
 
 Run one development server at a time on port 5173. The desktop bridge accepts only the app’s own main-frame origin; an unrelated page cannot invoke native operations.
@@ -44,12 +45,12 @@ Run one development server at a time on port 5173. The desktop bridge accepts on
 To produce a Windows installer:
 
 ```powershell
-npm run dist:win -- --publish never
+npm.cmd run dist:win -- --publish never
 ```
 
 The NSIS installer is written to `release/`. This project currently produces an **unsigned development build** unless a maintainer separately configures signing. Building does not publish a release. Review and test the build before distributing it.
 
-Native scripts launch with process-scoped `RemoteSigned`, not `Bypass`; no permanent machine execution-policy change is made. Downloaded unsigned scripts or organizational execution policies can prevent native features from running. Keep applicable trust and organization policies in place and use an approved, trusted checkout or signed distribution. Ordinary supported operations target the current user and do not automatically request elevation.
+Hardware scans, peripheral scans, and tweak detection use built-in read-only Windows queries and do not execute downloaded `.ps1` files. Registry apply/restore and display scripts launch with process-scoped `RemoteSigned`, not `Bypass`; no permanent machine execution-policy change is made. Downloaded unsigned scripts or organizational execution policies can prevent native features from running. Keep applicable trust and organization policies in place and use an approved, trusted checkout or signed distribution. Ordinary supported operations target the current user and do not automatically request elevation.
 
 ## Run the browser preview or cloud workspace
 
@@ -91,14 +92,25 @@ Use the same game scene, graphics settings, and capture workload before and afte
 
 The implementation was developed in a Linux cloud workspace. **Live Windows hardware scans, registry apply/restore, monitor switching, and installer execution have not been exercised there.** Validate these on a Windows test account and suitable display before relying on them on a main gaming setup.
 
-GitHub Actions runs the build and tests on `windows-latest` with Node 24 parses every native script using Windows PowerShell 5.1, and runs a real registry integration test on the isolated runner. That test temporarily writes transparency and menu delay, verifies the backup, and restores original values. The workflow has not been run from this cloud workspace. A manually dispatched workflow can additionally build and retain an unsigned Windows installer as a temporary development artifact; it never publishes a release.
+GitHub Actions is configured to build and test on `windows-latest` with Node 24, parse native scripts with Windows PowerShell 5.1, verify read-only hardware and tweak queries, and run a real registry integration test on the isolated runner. That test temporarily writes transparency and menu delay, verifies the backup, and restores original values. The Windows workflow result has not been verified from this cloud workspace. A manually dispatched workflow can additionally build and retain an unsigned Windows installer as a temporary development artifact; it never publishes a release.
 
 ## Source map
 
 - `src/App.tsx` — workspace, plans, hardware reports, display previews, and OBS guidance.
 - `src/data/tweaks.ts` — descriptions, applicability, tradeoffs, and guided steps.
 - `electron/` — isolated preload bridge, request validation, and native-process coordination.
-- `scripts/windows/` — hardware inventory, registry transactions, settings links, and supported display-mode operations.
+- `scripts/windows/` — shared tweak manifest, registry transactions, settings links, and supported display-mode operations.
+- `electron/scanner.cjs` and `electron/tweak-status.cjs` — resilient read-only Windows inventory and current-setting detection.
 - `tests/` — report validation and mocked native-boundary tests.
 
 The browser workflow can also be exercised with `python tests/ui_smoke.py` when Python Playwright and Chromium are installed. This checks exports, report validation, saved profiles, mobile layout, and mocked desktop integration. Set `TWEAKER_URL` to test a production preview. On a Windows **test account**, `powershell -NoProfile -File tests/windows.integration.ps1 -AllowLocalSettingChanges` exercises real registry backup/restore; it does not test monitor switching or FPS.
+
+## Updating from v0.1.0 and scan errors
+
+Close every Tweakerzzz window, download the latest GitHub ZIP, and extract it to a new folder. Open a terminal there and run `npm.cmd ci`, `npm.cmd run build`, then `npm.cmd run desktop`. Confirm the header says **v0.2.0**. This release uses larger text, brighter descriptions, and larger buttons/switches across all screens.
+
+The original error “scan.ps1 is not digitally signed” came from Windows marking a downloaded ZIP's scripts as Internet files. v0.2.0 scans and read-only tweak checks do not depend on that script. No PowerShell execution policy needs to change for these reads. **Apply/restore and display changes still use the native script trust policy.** If you trust the ZIP downloaded from your repository, use its **Properties → Unblock → Apply**, then extract it again to a new folder; do not disable organizational policy. An organization that requires signed software may need an approved signed build.
+
+PC scanner and Peripherals keep full errors on screen with **Download error details**. Optional inventory failures produce component warnings and explicit unknown values. **Check Windows settings** refreshes the 22 readable tweak states. This reads saved registry values and the active power plan, not whether each Windows component has already reloaded a value or whether a machine policy overrides it.
+
+Read-only Windows CI now runs `node tests/windows.read.cjs`; registry integration additionally checks live status and that repeated applications skip existing settings. The cloud machine still cannot execute those Windows operations locally.

@@ -10,7 +10,8 @@ export function parseHardwareReport(input: unknown): SystemScan {
     if (typeof value !== 'string' || !value.trim() || value.length > max) throw new Error('A hardware report text field is missing or invalid.');
     return value;
   };
-  const number = (value: unknown, max: number): number => {
+  const number = (value: unknown, max: number): number | null => {
+    if (value === null) return null;
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > max) throw new Error('A hardware report number is missing or out of range.');
     return value;
   };
@@ -20,7 +21,9 @@ export function parseHardwareReport(input: unknown): SystemScan {
   if (!Array.isArray(report.peripherals) || report.peripherals.length > 200) throw new Error('Invalid peripheral list.');
   const date = report.scannedAt;
   if (date !== '' && (typeof date !== 'string' || !Number.isFinite(Date.parse(date)))) throw new Error('Invalid report timestamp.');
-  const totalGB = number(storage.totalGB, 100_000_000), freeGB = number(storage.freeGB, totalGB);
+  const totalGB = number(storage.totalGB, 100_000_000), freeGB = number(storage.freeGB, totalGB ?? 100_000_000);
+  const warnings = report.warnings;
+  if (warnings !== undefined && (!Array.isArray(warnings) || warnings.length > 30)) throw new Error('Invalid scan diagnostics.');
   return {
     cpu: { name: text(cpu.name), cores: number(cpu.cores, 4096), threads: number(cpu.threads, 16384) },
     gpu: { name: text(gpu.name), vramGB: gpu.vramGB === null ? null : number(gpu.vramGB, 16384) },
@@ -33,5 +36,13 @@ export function parseHardwareReport(input: unknown): SystemScan {
       return { name: text(p.name), type: p.type as SystemScan['peripherals'][number]['type'], connection: text(p.connection, 80) };
     }),
     scannedAt: date as string,
+    ...(warnings !== undefined ? { warnings: (warnings as unknown[]).map(item => { const w = object(item); return { component: text(w.component, 80), message: text(w.message, 2000) }; }) } : {}),
   };
+}
+
+export function parsePeripheralReport(input: unknown): import('../types').PeripheralScan {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid peripheral report.');
+  const report = input as Record<string, unknown>;
+  const normalized = parseHardwareReport({ cpu: { name: 'Not requested', cores: null, threads: null }, gpu: { name: 'Not requested', vramGB: null }, memory: { totalGB: null, speedMHz: null }, os: { name: 'Not requested', build: 'Not requested' }, storage: { totalGB: null, freeGB: null }, peripherals: report.peripherals, scannedAt: report.scannedAt, warnings: report.warnings ?? [] });
+  return { peripherals: normalized.peripherals, scannedAt: normalized.scannedAt, warnings: normalized.warnings ?? [] };
 }

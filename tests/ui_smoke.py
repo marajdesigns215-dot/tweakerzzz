@@ -88,6 +88,10 @@ with sync_playwright() as p:
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Mobile page overflows horizontally'
     page.locator('.nav-item').filter(has_text='Optimizations').click()
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'Mobile optimizations overflow'
+    for name in ['PC scanner', 'Display studio', 'Peripherals', 'Streaming lab', 'Restore center']:
+        page.locator('.nav-item').filter(has_text=name).click()
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), f'Mobile {name} overflows'
+    page.locator('.nav-item').filter(has_text='Overview').click()
     assert not errors, errors
     print('PASS: browser planning, filtering, persistence, exports, import rejection, display, OBS, peripherals, restore, and mobile layout')
 
@@ -100,34 +104,65 @@ with sync_playwright() as p:
 
     # Native operations below are deliberate fixtures; no host settings change.
     context = browser.new_context(viewport={'width': 1440, 'height': 1000})
+    automatic_ids = [t['id'] for t in json.loads(Path('scripts/windows/tweaks.json').read_text())]
     context.add_init_script("""(() => {
-      let backups = [];
+      let backups = [], enabled = new Set(['game-mode']), previous = new Set(enabled);
+      window.__testScan = { failDevices: false, partial: false, enable: id => enabled.add(id) };
       window.tweaker = {
-        scan: async () => ({cpu:{name:'AMD Ryzen 9 5900X',cores:12,threads:24},gpu:{name:'NVIDIA GeForce RTX 4060',vramGB:null},memory:{totalGB:32,speedMHz:3200},os:{name:'Windows 11 Pro',build:'26200'},storage:{totalGB:2740,freeGB:1550},peripherals:[{name:'Test Mouse',type:'Mouse',connection:'USB'}],scannedAt:new Date().toISOString()}),
-        applyTweaks: async ids => {backups=[{id:'a'.repeat(32),createdAt:new Date().toISOString(),count:ids.length}];return {backupId:'a'.repeat(32),applied:ids,message:'Fixture changes applied'}},
-        restoreBackup: async () => {backups=[];return {message:'Fixture restored'}},
+        scan: async () => ({cpu:{name:'AMD Ryzen 9 5900X',cores:12,threads:24},gpu:{name:'NVIDIA GeForce RTX 4060',vramGB:null},memory:{totalGB:32,speedMHz:window.__testScan.partial ? null : 3200},os:{name:'Windows 11 Pro',build:'26200'},storage:window.__testScan.partial ? {totalGB:null,freeGB:null} : {totalGB:2740,freeGB:1550},peripherals:[{name:'Test Mouse',type:'Mouse',connection:'USB'}],scannedAt:new Date().toISOString(),warnings:window.__testScan.partial ? [{component:'storage',message:'Fixture provider unavailable'}] : []}),
+        scanPeripherals: async () => { if(window.__testScan.failDevices) throw new Error('Fixture peripheral provider unavailable'); return {peripherals:[{name:'Test Mouse',type:'Mouse',connection:'USB'},{name:'Test Keyboard',type:'Keyboard',connection:'HID'}],scannedAt:new Date().toISOString(),warnings:[]}; },
+        getTweakStatus: async () => ({checkedAt:new Date().toISOString(),tweaks:__IDS__.map(id=>({id,status:enabled.has(id)?'enabled':id==='game-dvr'?'not-enabled':'not-configured',message:enabled.has(id)?'Matches saved Windows settings':'Preference is not configured'}))}),
+        applyTweaks: async ids => {previous = new Set(enabled);ids.forEach(id=>enabled.add(id));backups=[{id:'a'.repeat(32),createdAt:new Date().toISOString(),count:ids.length}];return {backupId:'a'.repeat(32),applied:ids,message:'Fixture changes applied'}},
+        restoreBackup: async () => {enabled = new Set(previous);backups=[];return {message:'Fixture restored'}},
         listBackups: async () => backups,
         openSettings: async () => {},
         getDisplayModes: async () => [{width:1920,height:1080,refreshRate:60},{width:1440,height:1080,refreshRate:144}],
         setDisplayMode: async () => ({message:'Fixture display test started'}),
         confirmDisplayMode: async () => {}
       };
-    })()""")
+    })()""".replace('__IDS__', json.dumps(automatic_ids)))
     desktop = context.new_page()
     desktop.on('pageerror', lambda e: errors.append(str(e)))
     desktop.goto(URL, wait_until='networkidle')
+    expect(desktop.locator('.windows-status-bar')).to_contain_text('1 of 22 automatic tweaks already configured')
     desktop.get_by_role('button', name='Scan my PC').click()
     expect(desktop.locator('.scanner-cards')).to_contain_text('VRAM not reported by driver')
     desktop.locator('.nav-item').filter(has_text='Peripherals').click()
     expect(desktop.locator('.device-list')).to_contain_text('Test Mouse')
+    desktop.get_by_role('button', name='Scan devices', exact=True).click()
+    expect(desktop.locator('.device-list')).to_contain_text('Test Keyboard')
+    expect(desktop.get_by_role('heading', name='Peripherals', exact=True)).to_be_visible()
+    desktop.evaluate('window.__testScan.failDevices = true')
+    desktop.get_by_role('button', name='Scan devices', exact=True).click()
+    expect(desktop.get_by_role('alert')).to_contain_text('Fixture peripheral provider unavailable')
+    desktop.evaluate('window.__testScan.partial = true')
+    desktop.locator('.nav-item').filter(has_text='PC scanner').click()
+    desktop.get_by_role('button', name='Run hardware scan').click()
+    expect(desktop.locator('.scanner-cards')).to_contain_text('Storage not reported')
+    expect(desktop.locator('.diagnostic-panel')).to_contain_text('Hardware scan completed with warnings')
+    desktop.locator('.nav-item').filter(has_text='Optimizations').click()
+    expect(desktop.get_by_role('switch', name='Already configured: Windows Game Mode')).to_be_checked()
+    expect(desktop.get_by_role('switch', name='Already configured: Windows Game Mode')).to_be_disabled()
+    desktop.get_by_label('Filter settings').select_option('Already configured')
+    expect(desktop.locator('.tweak-card')).to_have_count(1)
+    desktop.get_by_label('Filter settings').select_option('All settings')
     desktop.locator('.nav-item').filter(has_text='Overview').click()
     desktop.get_by_role('button', name='Build my optimization plan').click()
-    desktop.get_by_role('button', name='Back up & apply 5 changes').click()
+    expect(desktop.locator('.review-list > div')).to_have_count(4)
+    desktop.get_by_role('button', name='Back up & apply 4 changes').click()
     expect(desktop.get_by_role('status')).to_contain_text('Fixture changes applied')
+    expect(desktop.locator('.windows-status-bar')).to_contain_text('5 of 22 automatic tweaks already configured')
     desktop.locator('.nav-item').filter(has_text='Restore center').click()
     desktop.get_by_role('button', name='Restore', exact=True).click()
     desktop.get_by_role('button', name='Restore settings', exact=True).click()
     expect(desktop.get_by_role('status')).to_contain_text('Fixture restored')
+    desktop.locator('.nav-item').filter(has_text='Optimizations').click()
+    expect(desktop.locator('.windows-status-bar')).to_contain_text('1 of 22 automatic tweaks already configured')
+    desktop.evaluate("window.__testScan.enable('transparency')")
+    desktop.get_by_role('button', name='Check Windows settings').click()
+    expect(desktop.locator('.windows-status-bar')).to_contain_text('2 of 22 automatic tweaks already configured')
+    desktop.get_by_label('Filter settings').select_option('Already configured')
+    expect(desktop.locator('.tweak-card')).to_have_count(2)
     desktop.locator('.nav-item').filter(has_text='Display studio').click()
     desktop.get_by_label('Display resolution', exact=True).select_option('1440x1080')
     desktop.get_by_role('button', name='Test resolution').click()

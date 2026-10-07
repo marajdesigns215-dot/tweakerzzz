@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('tweaker', Object.freeze({
   scan: () => ipcRenderer.invoke('tweaker:scan'),
+  scanPeripherals: () => ipcRenderer.invoke('tweaker:peripherals'),
+  getTweakStatus: () => ipcRenderer.invoke('tweaker:status'),
   applyTweaks: ids => ipcRenderer.invoke('tweaker:apply', ids),
   restoreBackup: id => ipcRenderer.invoke('tweaker:restore', id),
   listBackups: () => ipcRenderer.invoke('tweaker:backups'),

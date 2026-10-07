@@ -23,3 +23,26 @@ test('catalog contains 50+ distinct settings and automatic IDs match the native 
   assert.deepEqual(tweaks.filter(t => t.mode === 'automatic').map(t => t.id).sort(), [...TWEAK_IDS].sort());
   for (const t of tweaks) { assert.ok(categories.includes(t.category)); assert.ok(t.details.length > 40); if (t.mode === 'guided') assert.ok(t.steps?.length > 0); }
 });
+
+test('partial scans accept explicit unknowns and warnings without filling in reference specs', async () => {
+  const { parseHardwareReport, parsePeripheralReport } = await import('../src/lib/reports.ts');
+  const input = validReport();
+  input.cpu.cores = null; input.memory.speedMHz = null; input.storage = { totalGB: null, freeGB: null };
+  input.warnings = [{ component: 'storage', message: 'Provider unavailable' }];
+  const result = parseHardwareReport(input);
+  assert.equal(result.storage.totalGB, null);
+  assert.equal(result.cpu.cores, null);
+  assert.deepEqual(result.warnings, input.warnings);
+  assert.equal(parsePeripheralReport({ peripherals: [], scannedAt: input.scannedAt, warnings: [] }).peripherals.length, 0);
+  assert.throws(() => parsePeripheralReport({ peripherals: [null], scannedAt: input.scannedAt }));
+});
+
+test('Windows status validates complete live results and rejects missing or duplicate settings', async () => {
+  const { parseTweakStatus } = await import('../src/lib/tweak-status.ts');
+  const allowed = ['game-mode', 'game-dvr'];
+  const input = { checkedAt: new Date().toISOString(), tweaks: [{ id: 'game-mode', status: 'enabled', message: 'Matches' }, { id: 'game-dvr', status: 'not-configured', message: 'Unset' }] };
+  assert.deepEqual(parseTweakStatus(input, allowed), input);
+  assert.throws(() => parseTweakStatus({ ...input, tweaks: [input.tweaks[0]] }, allowed));
+  assert.throws(() => parseTweakStatus({ ...input, tweaks: [input.tweaks[0], input.tweaks[0]] }, allowed));
+  assert.throws(() => parseTweakStatus({ ...input, checkedAt: 'bad date' }, allowed));
+});

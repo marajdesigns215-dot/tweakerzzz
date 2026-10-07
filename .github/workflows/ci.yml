@@ -41,6 +41,9 @@ jobs:
       - name: Run automated tests
         run: npm test
 
+      - name: Verify live Windows inventory and tweak detection
+        run: node tests/windows.read.cjs
+
       - name: Verify native backup and restore on the isolated runner
         shell: powershell
         run: ./tests/windows.integration.ps1

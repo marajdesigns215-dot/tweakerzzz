@@ -11,31 +11,9 @@ function Preference($path, $name, $kind, $value) {
     return [ordered]@{ path = $path; name = $name; kind = $kind; value = $value }
 }
 
-$explorer = 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
-$content = 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
-$manifest = @{
-    'game-mode' = @((Preference 'Software\Microsoft\GameBar' 'AutoGameModeEnabled' 'DWord' 1), (Preference 'Software\Microsoft\GameBar' 'AllowAutoGameMode' 'DWord' 1))
-    'game-dvr' = @((Preference 'System\GameConfigStore' 'GameDVR_Enabled' 'DWord' 0), (Preference 'Software\Microsoft\Windows\CurrentVersion\GameDVR' 'AppCaptureEnabled' 'DWord' 0))
-    'mouse-acceleration' = @((Preference 'Control Panel\Mouse' 'MouseSpeed' 'String' '0'), (Preference 'Control Panel\Mouse' 'MouseThreshold1' 'String' '0'), (Preference 'Control Panel\Mouse' 'MouseThreshold2' 'String' '0'))
-    'transparency' = @((Preference 'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' 'EnableTransparency' 'DWord' 0))
-    'animations' = @((Preference 'Control Panel\Desktop\WindowMetrics' 'MinAnimate' 'String' '0'))
-    'background-apps' = @((Preference 'Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications' 'GlobalUserDisabled' 'DWord' 1))
-    'game-bar-tips' = @((Preference 'Software\Microsoft\GameBar' 'ShowStartupPanel' 'DWord' 0))
-    'startup-delay' = @((Preference 'Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize' 'StartupDelayInMSec' 'DWord' 0))
-    'menu-delay' = @((Preference 'Control Panel\Desktop' 'MenuShowDelay' 'String' '100'))
-    'taskbar-animations' = @((Preference $explorer 'TaskbarAnimations' 'DWord' 0))
-    'peek' = @((Preference 'Software\Microsoft\Windows\DWM' 'EnableAeroPeek' 'DWord' 0))
-    'content-suggestions' = @((Preference $content 'SubscribedContent-338388Enabled' 'DWord' 0), (Preference $content 'SystemPaneSuggestionsEnabled' 'DWord' 0))
-    'tailored-experiences' = @((Preference 'Software\Microsoft\Windows\CurrentVersion\Privacy' 'TailoredExperiencesWithDiagnosticDataEnabled' 'DWord' 0))
-    'advertising-id' = @((Preference 'Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo' 'Enabled' 'DWord' 0))
-    'tips-notifications' = @((Preference $content 'SubscribedContent-338389Enabled' 'DWord' 0))
-    'lockscreen-suggestions' = @((Preference $content 'RotatingLockScreenOverlayEnabled' 'DWord' 0), (Preference $content 'SubscribedContent-338387Enabled' 'DWord' 0))
-    'explorer-sync-notifications' = @((Preference $explorer 'ShowSyncProviderNotifications' 'DWord' 0))
-    'search-highlights' = @((Preference 'Software\Microsoft\Windows\CurrentVersion\SearchSettings' 'IsDynamicSearchBoxEnabled' 'DWord' 0))
-    'widgets' = @((Preference $explorer 'TaskbarDa' 'DWord' 0))
-    'edge-background' = @((Preference 'Software\Policies\Microsoft\Edge' 'BackgroundModeEnabled' 'DWord' 0))
-    'edge-startup-boost' = @((Preference 'Software\Policies\Microsoft\Edge' 'StartupBoostEnabled' 'DWord' 0))
-    'power-plan' = @()
+$manifest = @{}
+foreach ($entry in @(Get-Content -LiteralPath (Join-Path $PSScriptRoot 'tweaks.json') -Raw | ConvertFrom-Json)) {
+    $manifest[$entry.id] = @($entry.registry)
 }
 $allowedValues = @{}
 foreach ($id in $manifest.Keys) {
@@ -107,6 +85,31 @@ function Save-Backup($backup, $file) {
     }
 }
 
+function Get-TweakStatus($id) {
+    try {
+        if ($id -eq 'power-plan') {
+            $active = Invoke-Power @('/getactivescheme')
+            if ($active -notmatch '[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}') { throw 'Windows did not report the active power plan.' }
+            if ($Matches[0] -eq '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c') {
+                return @{ id = $id; status = 'enabled'; message = 'High performance is the active Windows power plan.' }
+            }
+            return @{ id = $id; status = 'not-enabled'; message = 'A different Windows power plan is active.' }
+        }
+        $missing = $false
+        $different = $false
+        foreach ($specification in $manifest[$id]) {
+            $current = Read-Preference $specification
+            if (-not $current.existed) { $missing = $true; continue }
+            if ($current.kind -ne $specification.kind -or [string]$current.value -cne [string]$specification.value) { $different = $true }
+        }
+        if ($different) { return @{ id = $id; status = 'not-enabled'; message = 'One or more saved Windows values differ from this tweak.' } }
+        if ($missing) { return @{ id = $id; status = 'not-configured'; message = 'One or more registry preferences are unset. The effective Windows default is not inferred.' } }
+        return @{ id = $id; status = 'enabled'; message = 'All saved Windows values match this tweak. A sign-out, restart, or organizational policy can still affect its behavior.' }
+    } catch {
+        return @{ id = $id; status = 'unknown'; message = ('Windows could not read this setting: ' + $_.Exception.Message) }
+    }
+}
+
 function Restore-State($backup) {
     $failures = @()
     # Validate the entire backup before performing any writes.
@@ -162,6 +165,14 @@ $mutex = $null
 $ownsMutex = $false
 try {
     $request = [Console]::In.ReadToEnd() | ConvertFrom-Json
+    # The status operation performs only reads. It must not create a backup
+    # directory or infer activation from old backups or renderer preferences.
+    if ($request.action -eq 'status') {
+        $states = @($manifest.Keys | Sort-Object | ForEach-Object { Get-TweakStatus $_ })
+        $report = @{ checkedAt = [DateTime]::UtcNow.ToString('o'); tweaks = $states }
+        [Console]::Out.WriteLine((@{ ok = $true; data = $report } | ConvertTo-Json -Depth 6 -Compress))
+        return
+    }
     if (-not $request.backupDirectory -or -not [IO.Path]::IsPathRooted($request.backupDirectory)) { throw 'A local backup directory is required.' }
     $backupDirectory = [IO.Path]::GetFullPath($request.backupDirectory)
     $null = [IO.Directory]::CreateDirectory($backupDirectory)
@@ -191,6 +202,15 @@ try {
             $ids = @($request.ids)
             if ($ids.Count -lt 1 -or $ids.Count -gt $manifest.Count) { throw 'Invalid optimization selection.' }
             if (@($ids | Select-Object -Unique).Count -ne $ids.Count) { throw 'Duplicate optimization IDs are not allowed.' }
+            foreach ($id in $ids) { if ($id -isnot [string] -or -not $manifest.ContainsKey($id)) { throw 'Unsupported optimization ID.' } }
+            # Recheck immediately before writing, including changes made by
+            # Windows or another tool since the renderer last checked.
+            $skipped = @($ids | Where-Object { (Get-TweakStatus $_).status -eq 'enabled' })
+            $ids = @($ids | Where-Object { $_ -notin $skipped })
+            if ($ids.Count -eq 0) {
+                $data = @{ backupId = $null; applied = @(); skipped = $skipped; message = 'All selected tweaks already match your saved Windows settings. No changes or backup were needed.' }
+                break
+            }
             $specifications = @{}
             foreach ($id in $ids) {
                 if ($id -isnot [string] -or -not $manifest.ContainsKey($id)) { throw 'Unsupported optimization ID.' }
@@ -236,7 +256,7 @@ try {
                 }
                 throw ('No changes were kept. The transaction was rolled back: ' + $applyFailure)
             }
-            $data = [ordered]@{ backupId = $backup.id; applied = @($ids); message = 'Preferences saved with a reversible backup. Sign out and back in for all Windows preferences to take effect. Some preferences depend on the Windows build or organizational policy; FPS gains are not guaranteed.' }
+            $data = [ordered]@{ backupId = $backup.id; applied = @($ids); skipped = $skipped; message = ('Saved ' + $ids.Count + ' changes with a reversible backup; skipped ' + $skipped.Count + ' already configured settings. Sign out and back in for all Windows preferences to take effect. Some preferences depend on your Windows build or organizational policy.') }
         }
         'restore' {
             if ($request.id -isnot [string] -or $request.id -notmatch '^[a-f0-9]{32}$') { throw 'Invalid backup ID.' }

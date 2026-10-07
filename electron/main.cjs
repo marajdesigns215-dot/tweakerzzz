@@ -5,11 +5,16 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { pathToFileURL } = require('node:url');
 const { validateTweakIds, validateBackupId, validateSettingsTarget, validateDisplayMode } = require('./validation.cjs');
+const { scanSystem, scanPeripherals } = require('./scanner.cjs');
+const { nativeError } = require('./native-errors.cjs');
+const { getTweakStatus } = require('./tweak-status.cjs');
+const { listBackups } = require('./backups.cjs');
 
 let window;
 let nativeBusy = false;
 let pendingDisplay = null;
 let quitting = false;
+let statusRequest = null;
 const development = !app.isPackaged && process.argv.includes('--dev');
 const entry = development ? 'http://127.0.0.1:5173/' : pathToFileURL(path.join(__dirname, '..', 'dist', 'index.html')).href;
 
@@ -61,7 +66,9 @@ function native(script, payload = {}) {
     });
     child.stderr.on('data', chunk => { if (stderr.length < 16000) stderr += chunk; });
     child.on('error', error => finish(error));
-    child.stdin.on('error', error => finish(error));
+    // PowerShell may close stdin early when a trust policy blocks the script.
+    // Keep its stderr so the user sees the actual cause instead of EPIPE.
+    child.stdin.on('error', error => { if (error.code !== 'EPIPE') finish(nativeError(error.message)); });
     child.on('close', code => {
       try {
         const response = JSON.parse(stdout.replace(/^\uFEFF/, '').trim());
@@ -69,7 +76,7 @@ function native(script, payload = {}) {
         if (code !== 0) throw new Error('The Windows operation exited unexpectedly.');
         finish(null, response.data);
       } catch (error) {
-        finish(new Error(error instanceof SyntaxError ? `Windows could not complete this operation.${stderr ? ' ' + stderr.trim().slice(0, 1000) : ''}` : error.message));
+        finish(nativeError(error instanceof SyntaxError ? stderr || 'Windows returned no valid response.' : error.message));
       }
     });
     child.stdin.end(JSON.stringify(payload));
@@ -178,7 +185,12 @@ function registerHandlers() {
     return fn(...args);
   });
   const backupDirectory = path.join(app.getPath('userData'), 'backups');
-  handle('tweaker:scan', () => native('scan.ps1'));
+  handle('tweaker:scan', () => scanSystem());
+  handle('tweaker:peripherals', () => scanPeripherals());
+  handle('tweaker:status', () => {
+    if (!statusRequest) statusRequest = exclusive(() => getTweakStatus()).finally(() => { statusRequest = null; });
+    return statusRequest;
+  });
   handle('tweaker:apply', ids => {
     const approved = validateTweakIds(ids);
     return exclusive(() => native('tweaks.ps1', { action: 'apply', ids: approved, backupDirectory }));
@@ -187,7 +199,7 @@ function registerHandlers() {
     const approved = validateBackupId(id);
     return exclusive(() => native('tweaks.ps1', { action: 'restore', id: approved, backupDirectory }));
   });
-  handle('tweaker:backups', () => native('tweaks.ps1', { action: 'list', backupDirectory }));
+  handle('tweaker:backups', () => listBackups(backupDirectory));
   handle('tweaker:settings', async target => {
     const destination = validateSettingsTarget(target);
     if (destination === 'nvidia') {

@@ -31,20 +31,31 @@ $targets = @(
 $before = @($targets | ForEach-Object { Read-TestValue $_.path $_.name | ConvertTo-Json -Compress })
 try {
     $result = Invoke-TestNative @{ action = 'apply'; ids = @('transparency', 'menu-delay') }
-    if (@($result.applied).Count -ne 2) { throw 'The native transaction did not report both changes.' }
+    if ((@($result.applied).Count + @($result.skipped).Count) -ne 2) { throw 'The native transaction did not account for both selected preferences.' }
     foreach ($target in $targets) {
         $actual = Read-TestValue $target.path $target.name
         if (-not $actual.existed -or $actual.value -ne $target.expected) { throw ('A preference was not written: ' + $target.name) }
     }
     $history = @(Invoke-TestNative @{ action = 'list' })
-    if ($history.Count -ne 1 -or $history[0].id -ne $result.backupId) { throw 'The saved backup is missing from history.' }
-    $null = Invoke-TestNative @{ action = 'restore'; id = $result.backupId }
+    if (@($result.applied).Count -gt 0) {
+        if ($history.Count -ne 1 -or $history[0].id -ne $result.backupId) { throw 'The saved backup is missing from history.' }
+    } elseif ($history.Count -ne 0 -or $null -ne $result.backupId) { throw 'Already configured preferences created an unnecessary backup.' }
+    $statusRaw = & node -e "require('./electron/tweak-status.cjs').getTweakStatus().then(r=>console.log(JSON.stringify(r))).catch(e=>{console.error(e);process.exitCode=1})"
+    if ($LASTEXITCODE -ne 0) { throw 'The read-only status reader failed.' }
+    $status = ($statusRaw -join "`n") | ConvertFrom-Json
+    foreach ($id in @('transparency', 'menu-delay')) {
+        $state = @($status.tweaks | Where-Object { $_.id -eq $id })
+        if ($state.Count -ne 1 -or $state[0].status -ne 'enabled') { throw ('An applied preference was not detected: ' + $id) }
+    }
+    $again = Invoke-TestNative @{ action = 'apply'; ids = @('transparency', 'menu-delay') }
+    if (@($again.applied).Count -ne 0 -or @($again.skipped).Count -ne 2 -or $null -ne $again.backupId) { throw 'Repeated application did not skip already configured settings.' }
+    if ($result.backupId) { $null = Invoke-TestNative @{ action = 'restore'; id = $result.backupId } }
     for ($index = 0; $index -lt $targets.Count; $index++) {
         $actual = Read-TestValue $targets[$index].path $targets[$index].name | ConvertTo-Json -Compress
         if ($actual -ne $before[$index]) { throw ('Original preference was not restored: ' + $targets[$index].name) }
     }
     if (@(Invoke-TestNative @{ action = 'list' }).Count -ne 0) { throw 'Restored backup still appears as active.' }
-    Write-Output 'PASS: real Windows registry writes, pre-change backup, exact restoration, and history lifecycle.'
+    Write-Output ('PASS: Windows detection, no-op handling, exact restoration, and history lifecycle; wrote ' + @($result.applied).Count + ' preferences, skipped ' + @($result.skipped).Count + ' already configured preferences.')
 } finally {
     # If an assertion fails after application, unwind every pending test backup.
     if (Test-Path -LiteralPath $backupDirectory) {

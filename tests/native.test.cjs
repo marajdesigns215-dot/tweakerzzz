@@ -19,10 +19,9 @@ test('the native optimization boundary accepts only unique known IDs', () => {
 });
 
 test('JavaScript and PowerShell optimization allowlists agree', () => {
-  const script = fs.readFileSync(path.join(__dirname, '../scripts/windows/tweaks.ps1'), 'utf8');
-  const manifest = script.slice(script.indexOf('$manifest = @{'), script.indexOf('$allowedValues = @{}'));
-  const powershellIds = [...manifest.matchAll(/^\s*'([a-z-]+)' = /gm)].map(match => match[1]);
-  assert.deepEqual(powershellIds.sort(), [...TWEAK_IDS].sort());
+  const manifest = require('../scripts/windows/tweaks.json');
+  assert.deepEqual(manifest.map(t => t.id).sort(), [...TWEAK_IDS].sort());
+  for (const item of manifest) { for (const value of item.registry) { assert.ok(['String', 'DWord'].includes(value.kind)); assert.ok(!value.path.startsWith('HKLM')); } }
 });
 
 test('backup requests cannot traverse directories or supply filenames', () => {
@@ -100,6 +99,10 @@ async function nativeHarness({ singleInstance = true } = {}) {
     if (id === 'electron') return { app, BrowserWindow: FakeWindow, ipcMain: { handle: (name, fn) => handlers.set(name, fn) }, shell: { openExternal: async () => {}, openPath: async () => '' }, dialog: { showErrorBox: (title, message) => errors.push({ title, message }) } };
     if (id === 'node:child_process') return { spawn };
     if (id === './validation.cjs') return require('../electron/validation.cjs');
+    if (id === './native-errors.cjs') return require('../electron/native-errors.cjs');
+    if (id === './scanner.cjs') return { scanSystem: async () => ({ source: 'scanner' }), scanPeripherals: async () => ({ peripherals: [] }) };
+    if (id === './tweak-status.cjs') return { getTweakStatus: async () => ({ tweaks: [], checkedAt: new Date().toISOString() }) };
+    if (id === './backups.cjs') return { listBackups: async () => [] };
     return require(id);
   };
   vm.runInNewContext(fs.readFileSync(path.join(nativeDirectory, 'main.cjs'), 'utf8'), {
@@ -178,4 +181,14 @@ test('a second application instance cannot register native handlers', async () =
   assert.equal(result.app.quitCalled, true);
   assert.equal(result.window, undefined);
   assert.equal(result.calls.length, 0);
+});
+
+
+test('read-only scanning and status requests do not launch downloaded PowerShell scripts', async () => {
+  const app = await nativeHarness();
+  assert.equal((await app.invoke('tweaker:scan')).source, 'scanner');
+  assert.equal((await app.invoke('tweaker:peripherals')).peripherals.length, 0);
+  const statuses = await Promise.all([app.invoke('tweaker:status'), app.invoke('tweaker:status')]);
+  assert.equal(statuses.length, 2);
+  assert.equal(app.calls.length, 0);
 });
