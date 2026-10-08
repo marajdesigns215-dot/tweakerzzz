@@ -99,3 +99,16 @@ test('before/after comparison requires matching conditions and discloses state c
   assert.deepEqual(compareCaptures(before, after).changed, ['game-mode']);
   for (const change of [{ context: 'Streaming' }, { scenario: 'other scene' }, { processName: 'other.exe' }, { status: 'failed' }, { startedAt: before.startedAt }, { phase: 'before' }]) assert.equal(compareCaptures(before, { ...after, ...change }), null);
 });
+
+
+test('a malformed final CSV row still closes the collector and persists an unsuccessful run', async () => {
+  const h = await harness();
+  try {
+    await h.manager.start(options);
+    h.children[0].stdout.write('Application,Unexpected');
+    const record = await h.manager.stop();
+    assert.equal(record.status, 'failed'); assert.match(record.error, /Unsupported PresentMon CSV/);
+    assert.equal(h.manager.isActive(), false);
+    assert.equal((await h.manager.list())[0].status, 'failed');
+  } finally { await h.cleanup(); }
+});

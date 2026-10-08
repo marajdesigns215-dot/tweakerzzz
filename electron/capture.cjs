@@ -115,7 +115,8 @@ function createCaptureManager({ directory, executable, snapshot, readHardware = 
       const finish = async code => {
         if (finished) return; finished = true; clearTimeout(watchdog); clearTimeout(active.killTimer);
         try {
-          metrics.end();
+          // A malformed final CSV row must not skip stream/telemetry cleanup.
+          try { metrics.end(); } catch (error) { active.error ||= error.message; }
           // Wait for buffered CSV writes before exposing export/delete actions.
           await new Promise(resolve => { if (output.destroyed) resolve(); else output.end(resolve); });
           record.endedAt = new Date().toISOString(); record.summary = metrics.summary();

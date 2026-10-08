@@ -54,6 +54,7 @@ function createTelemetry({ hardware, obs, host = os, environment = process.env, 
       else { cpuProviderAvailable = false; warnings.add('CPU package temperature unavailable. Optional: run Libre Hardware Monitor with its WMI provider before the recording. No sensor value is estimated.'); }
       if (results[1].status === 'fulfilled') {
         const value = results[1].value;
+        if (value.recordingPaused || value.streamReconnecting) obsInvalid = true;
         if (lastObs && (value.streaming !== lastObs.streaming || value.recording !== lastObs.recording || ['renderSkipped','renderTotal','encodeSkipped','encodeTotal','streamSkipped','streamTotal'].some(key => value[key] != null && lastObs[key] != null && value[key] < lastObs[key]))) obsInvalid = true;
         firstObs ||= value; lastObs = value; obsSamples++;
       } else { warnings.add('OBS statistics were unavailable for one or more samples.'); obsInvalid = true; }
@@ -65,7 +66,7 @@ function createTelemetry({ hardware, obs, host = os, environment = process.env, 
   return { stop: async () => {
     clearInterval(timer); if (inFlight) await inFlight;
     await sample(); running = false;
-    if (obsInvalid) warnings.add('OBS counters reset, its output mode changed, or its connection was interrupted. Lag percentages are unavailable for this run.');
+    if (obsInvalid) warnings.add('OBS counters reset, its output mode changed/paused, its stream reconnected, or its connection was interrupted. Lag percentages are unavailable for this run.');
     const temperatures = gpuSamples.map(value => value.temperature).filter(value => value != null);
     const gpu = { ...stats(gpuSamples.map(value => value.utilization)), name: gpuName ?? 'Unknown GPU', peakTemperatureC: temperatures.length ? Math.max(...temperatures) : null };
     return { enabled: true, intervalSeconds: 5, cpu: stats(samples.map(value => value.cpu)), memory: stats(samples.map(value => value.memory)), gpu, cpuTemperatureC: temperaturesCpu.length ? Math.max(...temperaturesCpu) : null, cpuTemperatureSensor: cpuSensor, obs: { ...obsDelta(firstObs, lastObs, obsInvalid), samples: obsSamples }, warnings: [...warnings] };

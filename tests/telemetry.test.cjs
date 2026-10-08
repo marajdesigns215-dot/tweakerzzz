@@ -48,3 +48,13 @@ test('telemetry failures do not invent CPU/GPU temperatures or OBS lag', async (
   assert.equal(result.gpu.averagePercent, null); assert.equal(result.gpu.peakTemperatureC, null); assert.equal(result.cpuTemperatureC, null); assert.equal(result.obs.encodingLagPercent, null);
   assert.ok(result.warnings.some(w => w.includes('CPU package temperature unavailable')));
 });
+
+
+test('paused OBS output invalidates lag percentages even if counters keep increasing', async () => {
+  let count = 0;
+  const obs = { status: () => ({ connected: true }), sample: async () => ({ renderSkipped: 0, renderTotal: ++count * 100, encodeSkipped: 0, encodeTotal: count * 100, streamSkipped: 0, streamTotal: count * 100, recording: true, streaming: false, recordingPaused: true }) };
+  const telemetry = createTelemetry({ obs, hardware: { gpu: { name: 'Unknown' } }, exists: () => false, execute: async () => '[]' });
+  const result = await telemetry.stop();
+  assert.equal(result.obs.encodingLagPercent, null);
+  assert.ok(result.warnings.some(w => w.includes('paused')));
+});

@@ -61,7 +61,7 @@ function createObsClient({ Socket = WebSocket } = {}) {
     sample: async () => {
       const [stats, stream, recording] = await Promise.all(['GetStats', 'GetStreamStatus', 'GetRecordStatus'].map(request));
       const counter = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
-      return { renderSkipped: counter(stats.renderSkippedFrames), renderTotal: counter(stats.renderTotalFrames), encodeSkipped: counter(stats.outputSkippedFrames), encodeTotal: counter(stats.outputTotalFrames), streamSkipped: counter(stream.outputSkippedFrames), streamTotal: counter(stream.outputTotalFrames), streaming: stream.outputActive === true, recording: recording.outputActive === true };
+      return { renderSkipped: counter(stats.renderSkippedFrames), renderTotal: counter(stats.renderTotalFrames), encodeSkipped: counter(stats.outputSkippedFrames), encodeTotal: counter(stats.outputTotalFrames), streamSkipped: counter(stream.outputSkippedFrames), streamTotal: counter(stream.outputTotalFrames), streaming: stream.outputActive === true, recording: recording.outputActive === true, streamReconnecting: stream.outputReconnecting === true, recordingPaused: recording.outputPaused === true };
     },
   };
 }
