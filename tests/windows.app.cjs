@@ -93,4 +93,8 @@ async function until(fn, label, timeout = 45000) {
     for (const call of pending.values()) clearTimeout(call.timer);
     socket.terminate();
   }
-})().catch(error => { console.error(error); process.exitCode = 1; });
+})().catch(error => {
+  const detail = String(error.stack || error).slice(0, 3000).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+  console.error(`::error title=Installed Windows app walkthrough failed::${detail}`);
+  process.exitCode = 1;
+});
