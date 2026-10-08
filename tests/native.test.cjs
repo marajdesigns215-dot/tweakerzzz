@@ -55,14 +55,21 @@ async function nativeHarness({ singleInstance = true } = {}) {
   app.getPath = () => '/tmp/tweaker-test-user-data';
   app.requestSingleInstanceLock = () => singleInstance;
   app.quit = () => { app.quitCalled = true; };
-  class FakeWindow {
+  class FakeWindow extends EventEmitter {
     constructor() {
+      super();
       windows.push(this);
       this.webContents = new EventEmitter();
       this.webContents.mainFrame = { url: '' };
       this.webContents.setWindowOpenHandler = fn => { this.newWindowHandler = fn; };
       this.webContents.session = { setPermissionRequestHandler() {}, setPermissionCheckHandler() {} };
     }
+    isDestroyed() { return false; }
+    isVisible() { return !this.hidden; }
+    isMinimized() { return false; }
+    hide() { this.hidden = true; }
+    show() { this.hidden = false; }
+    focus() {}
     loadURL(url) { this.webContents.mainFrame.url = url; }
     static getAllWindows() { return windows; }
   }
@@ -95,8 +102,12 @@ async function nativeHarness({ singleInstance = true } = {}) {
     return child;
   };
   const nativeDirectory = path.join(__dirname, '../electron');
+  const capture = { active: false, isActive() { return this.active; }, async start(input) { require('../electron/capture.cjs').validateCapture(input); this.active = true; return { active: true }; }, async stop() { this.active = false; }, status() { return { active: this.active }; } };
+  class FakeTray extends EventEmitter { setToolTip() {} setContextMenu() {} }
   const fakeRequire = id => {
-    if (id === 'electron') return { app, BrowserWindow: FakeWindow, ipcMain: { handle: (name, fn) => handlers.set(name, fn) }, shell: { openExternal: async () => {}, openPath: async () => '' }, dialog: { showErrorBox: (title, message) => errors.push({ title, message }) } };
+    if (id === './capture.cjs') return { createCaptureManager: () => capture, listPrograms: async () => [] };
+    if (id === './presentmon.json') return require('../electron/presentmon.json');
+    if (id === 'electron') return { app, BrowserWindow: FakeWindow, Tray: FakeTray, Menu: { buildFromTemplate: data => data }, ipcMain: { handle: (name, fn) => handlers.set(name, fn) }, shell: { openExternal: async () => {}, openPath: async () => '' }, dialog: { showErrorBox: (title, message) => errors.push({ title, message }) } };
     if (id === 'node:child_process') return { spawn };
     if (id === './validation.cjs') return require('../electron/validation.cjs');
     if (id === './native-errors.cjs') return require('../electron/native-errors.cjs');
@@ -191,4 +202,21 @@ test('read-only scanning and status requests do not launch downloaded PowerShell
   const statuses = await Promise.all([app.invoke('tweaker:status'), app.invoke('tweaker:status')]);
   assert.equal(statuses.length, 2);
   assert.equal(app.calls.length, 0);
+});
+
+
+test('FPS recording keeps a closed window in the tray and blocks configuration changes', async () => {
+  const app = await nativeHarness();
+  await app.invoke('tweaker:capture-start', { processName: 'game.exe', phase: 'before', context: 'Gaming', seconds: 30, scenario: 'Same scene' });
+  let prevented = false;
+  app.window.emit('close', { preventDefault() { prevented = true; } });
+  assert.equal(prevented, true); assert.equal(app.window.hidden, true);
+  await assert.rejects(app.invoke('tweaker:apply', ['game-mode']), /Stop the FPS recording/);
+  await assert.rejects(app.invoke('tweaker:preferences', 'defaults', ['game-mode']), /Stop the FPS recording/);
+  await assert.rejects(app.invoke('tweaker:display-set', { width: 1920, height: 1080, refreshRate: 60 }), /Stop the FPS recording/);
+  await app.invoke('tweaker:capture-stop');
+  await app.invoke('tweaker:preferences', 'disable', ['game-mode']);
+  assert.equal(app.calls[0].payload.action, 'disable');
+  await assert.rejects(app.invoke('tweaker:preferences', 'factory-reset-pc', ['game-mode']), /Unsupported/);
+  app.app.emit('second-instance'); assert.equal(app.window.hidden, false);
 });

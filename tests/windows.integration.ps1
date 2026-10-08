@@ -54,6 +54,37 @@ try {
         if ($actual -ne $before[$index]) { throw ('Original preference was not restored: ' + $targets[$index].name) }
     }
     if (@(Invoke-TestNative @{ action = 'list' }).Count -ne 0) { throw 'Restored backup still appears as active.' }
+    # Preserve externally configured values before disable/default operations,
+    # including an unusual original registry type and value.
+    $snapshot = Invoke-TestNative @{ action = 'snapshot'; ids = @('transparency', 'menu-delay') }
+    if (-not $snapshot.backupId) { throw 'A manual snapshot was not created.' }
+    for ($index = 0; $index -lt $targets.Count; $index++) {
+        $actual = Read-TestValue $targets[$index].path $targets[$index].name | ConvertTo-Json -Compress
+        if ($actual -ne $before[$index]) { throw 'Creating a snapshot modified a preference.' }
+    }
+    $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($targets[0].path)
+    try { $key.SetValue($targets[0].name, 0, [Microsoft.Win32.RegistryValueKind]::DWord) } finally { $key.Dispose() }
+    $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($targets[1].path)
+    try { $key.SetValue($targets[1].name, 275, [Microsoft.Win32.RegistryValueKind]::DWord) } finally { $key.Dispose() }
+    $disabled = Invoke-TestNative @{ action = 'disable'; ids = @('transparency', 'menu-delay') }
+    if ((Read-TestValue $targets[0].path $targets[0].name).value -ne 1) { throw 'An externally enabled tweak was not disabled.' }
+    if ((Read-TestValue $targets[1].path $targets[1].name).value -ne '400') { throw 'Menu delay disable target is incorrect.' }
+    $null = Invoke-TestNative @{ action = 'restore'; id = $disabled.backupId }
+    $custom = Read-TestValue $targets[1].path $targets[1].name
+    if ($custom.kind -ne 'DWord' -or $custom.value -ne 275) { throw 'Disable rollback did not preserve the custom value and kind.' }
+    $defaults = Invoke-TestNative @{ action = 'defaults'; ids = @('transparency', 'menu-delay') }
+    foreach ($target in $targets) { if ((Read-TestValue $target.path $target.name).existed) { throw 'Windows defaults did not remove a supported override.' } }
+    $again = Invoke-TestNative @{ action = 'defaults'; ids = @('transparency', 'menu-delay') }
+    if ($again.backupId) { throw 'Unchanged Windows defaults should be a no-op.' }
+    $null = Invoke-TestNative @{ action = 'restore'; id = $defaults.backupId }
+    $custom = Read-TestValue $targets[1].path $targets[1].name
+    if ($custom.kind -ne 'DWord' -or $custom.value -ne 275) { throw 'Defaults rollback lost the custom original preference.' }
+    $null = Invoke-TestNative @{ action = 'restore'; id = $snapshot.backupId }
+    for ($index = 0; $index -lt $targets.Count; $index++) {
+        $actual = Read-TestValue $targets[$index].path $targets[$index].name | ConvertTo-Json -Compress
+        if ($actual -ne $before[$index]) { throw ('Snapshot did not restore the initial state: ' + $targets[$index].name) }
+    }
+    Write-Output 'PASS: manual snapshots, externally enabled tweak disable, defaults reset, no-op defaults, and exact value/type restoration.'
     Write-Output ('PASS: Windows detection, no-op handling, exact restoration, and history lifecycle; wrote ' + @($result.applied).Count + ' preferences, skipped ' + @($result.skipped).Count + ' already configured preferences.')
 } finally {
     # If an assertion fails after application, unwind every pending test backup.

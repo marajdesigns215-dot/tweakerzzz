@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, Tray, Menu } = require('electron');
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs');
@@ -9,6 +9,9 @@ const { scanSystem, scanPeripherals } = require('./scanner.cjs');
 const { nativeError } = require('./native-errors.cjs');
 const { getTweakStatus } = require('./tweak-status.cjs');
 const { listBackups } = require('./backups.cjs');
+const { createCaptureManager, listPrograms } = require('./capture.cjs');
+const collector = require('./presentmon.json');
+let capture, tray, captureStart;
 
 let window;
 let nativeBusy = false;
@@ -178,6 +181,23 @@ function beginDisplayTest(mode) {
   return ready;
 }
 
+function showWindow() {
+  if (!window || window.isDestroyed()) createWindow();
+  window.show(); if (window.isMinimized()) window.restore(); window.focus();
+}
+function updateTray() {
+  if (!tray) return;
+  const active = capture?.isActive();
+  tray.setToolTip(active ? 'Tweakerzzz — recording FPS' : 'Tweakerzzz');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Open Tweakerzzz', click: showWindow },
+    { label: 'Stop FPS recording', enabled: !!active, click: () => capture.stop().catch(error => dialog.showErrorBox('FPS recording', error.message)) },
+    { type: 'separator' }, { label: 'Quit Tweakerzzz', click: () => app.quit() },
+  ]));
+}
+function ensureNotRecording() {
+  if (capture?.isActive()) throw new Error('Stop the FPS recording before changing settings so the run keeps one configuration.');
+}
 function registerHandlers() {
   const handle = (channel, fn) => ipcMain.handle(channel, async (event, ...args) => {
     requireTrustedSender(event);
@@ -193,15 +213,46 @@ function registerHandlers() {
   });
   handle('tweaker:apply', ids => {
     const approved = validateTweakIds(ids);
-    return exclusive(() => native('tweaks.ps1', { action: 'apply', ids: approved, backupDirectory }));
+    return exclusive(() => { ensureNotRecording(); return native('tweaks.ps1', { action: 'apply', ids: approved, backupDirectory }); });
   });
   handle('tweaker:restore', id => {
     const approved = validateBackupId(id);
-    return exclusive(() => native('tweaks.ps1', { action: 'restore', id: approved, backupDirectory }));
+    return exclusive(() => { ensureNotRecording(); return native('tweaks.ps1', { action: 'restore', id: approved, backupDirectory }); });
   });
   handle('tweaker:backups', () => listBackups(backupDirectory));
+  handle('tweaker:preferences', (action, ids) => {
+    if (!['disable', 'defaults', 'snapshot'].includes(action)) throw new Error('Unsupported preference action.');
+    const approved = validateTweakIds(ids);
+    return exclusive(() => { ensureNotRecording(); return native('tweaks.ps1', { action, ids: approved, backupDirectory }); });
+  });
+  handle('tweaker:programs', () => listPrograms());
+  handle('tweaker:capture-start', input => {
+    captureStart = exclusive(() => {
+      if (pendingDisplay) throw new Error('Finish the display test before recording.');
+      return capture.start(input);
+    }).finally(() => { captureStart = null; });
+    return captureStart;
+  });
+  handle('tweaker:capture-stop', () => capture.stop());
+  handle('tweaker:capture-status', () => capture.status());
+  handle('tweaker:capture-list', () => capture.list());
+  handle('tweaker:capture-delete', id => capture.remove(id));
+  handle('tweaker:capture-export', async id => {
+    const source = await capture.csvPath(id);
+    const result = await dialog.showSaveDialog(window, { title: 'Export PresentMon frame data', defaultPath: `Tweakerzzz-${id}.csv`, filters: [{ name: 'CSV frame data', extensions: ['csv'] }] });
+    if (!result.canceled && result.filePath) await fs.promises.copyFile(source, result.filePath);
+  });
+  handle('tweaker:hide', () => {
+    if (!tray || pendingDisplay) throw new Error('Finish any display test before minimizing to the tray.');
+    window.hide();
+  });
   handle('tweaker:settings', async target => {
     const destination = validateSettingsTarget(target);
+    if (destination === 'protection') {
+      const error = await shell.openPath(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'SystemPropertiesProtection.exe'));
+      if (error) throw new Error(error);
+      return;
+    }
     if (destination === 'nvidia') {
       const candidate = path.join(process.env.ProgramFiles || 'C:\\Program Files', 'NVIDIA Corporation', 'Control Panel Client', 'nvcplui.exe');
       if (fs.existsSync(candidate)) {
@@ -218,6 +269,7 @@ function registerHandlers() {
   handle('tweaker:display-set', input => {
     const mode = validateDisplayMode(input);
     return exclusive(async () => {
+      ensureNotRecording();
       await revertDisplay();
       return beginDisplayTest(mode);
     });
@@ -244,24 +296,35 @@ function createWindow() {
   window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   window.webContents.session.setPermissionCheckHandler(() => false);
   window.webContents.on('render-process-gone', () => { revertDisplay().catch(() => {}); });
+  window.on('close', event => { if (!quitting && capture?.isActive() && tray) { event.preventDefault(); window.hide(); } });
   window.loadURL(entry);
 }
 
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', () => {
-    if (window) { if (window.isMinimized()) window.restore(); window.focus(); }
+    showWindow();
   });
   app.whenReady().then(() => {
+    capture = createCaptureManager({
+      directory: path.join(app.getPath('userData'), 'recordings'),
+      executable: app.isPackaged ? path.join(process.resourcesPath, 'presentmon', collector.file) : path.join(__dirname, '..', 'vendor', 'presentmon', collector.file),
+      snapshot: getTweakStatus,
+      onChange: record => { updateTray(); if (record?.status === 'failed' && window && !window.isVisible()) showWindow(); },
+    });
     registerHandlers();
     createWindow();
+    tray = new Tray(app.isPackaged ? path.join(process.resourcesPath, 'app.ico') : path.join(__dirname, '..', 'build', 'icon.ico'));
+    tray.on('double-click', showWindow);
+    updateTray();
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
   });
 }
 app.on('before-quit', event => {
-  if (!pendingDisplay || quitting) return;
-  event.preventDefault();
+  if (quitting) return;
   quitting = true;
-  revertDisplay().finally(() => app.quit());
+  if (!pendingDisplay && !capture?.isActive()) return;
+  event.preventDefault();
+  Promise.resolve(captureStart).catch(() => {}).then(() => Promise.allSettled([revertDisplay(), capture.stop()])).finally(() => app.quit());
 });
 app.on('window-all-closed', () => app.quit());

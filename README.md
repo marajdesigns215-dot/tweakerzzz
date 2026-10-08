@@ -2,7 +2,7 @@
 
 A Windows gaming and content-creation workspace built with React, TypeScript, Vite, and Electron. Start with a hardware scan, review a plan, apply supported settings with a local backup, and compare your actual results.
 
-**Status: v0.2.2 development build.** Browser workflows and Windows inventory, tweak detection, and registry apply/restore are covered by automated checks. Tagged installers must also pass packaged-file, install, launch, shortcut, and uninstall checks before release. Monitor switching, vendor-specific devices, and actual performance results still need hardware testing. Direct NVIDIA vibrance control and automatic per-device vendor tuning are not implemented; those settings currently use previews or guides.
+**Status: v0.3.0 development build.** Browser workflows and Windows inventory, tweak detection, and registry apply/restore are covered by automated checks. Tagged installers must also pass packaged-file, install, launch, shortcut, and uninstall checks before release. Monitor switching, vendor-specific devices, and actual performance results still need hardware testing. Direct NVIDIA vibrance control and automatic per-device vendor tuning are not implemented; those settings currently use previews or guides.
 
 The included reference configuration comes from the supplied screenshot: **Ryzen 9 5900X, GeForce RTX 4060 8 GB, 32 GB RAM at 3200 MHz, and Windows 11 Pro**. Reference values are labeled and are replaced by a scan or imported report; they are not measurements of the computer running the browser.
 
@@ -18,17 +18,19 @@ The included reference configuration comes from the supplied screenshot: **Ryzen
 | Display studio | Provides visual color previews and locally saved reference profiles. Actual Digital Vibrance and GPU scaling use the NVIDIA Control Panel guides; there is no integrated NVIDIA color-control API. |
 | Peripherals | Reads product descriptions, USB IDs, and up to four parent levels, groups matching interfaces, and includes cameras. Known G102/G203 USB IDs have a local fallback; shared IDs stay labeled as a family. Device cards choose G102/G203, EP-84, Corsair VOID, or category guides from the reported evidence. DPI, polling rates, actuation, camera modes, and firmware remain manual and are not measured by the scanner. |
 | Streaming lab | Provides editable starting recommendations and a downloadable OBS settings guide. The guide is entered manually in OBS; it is not an importable OBS profile. |
-| Browser workspace | Supports browsing, planning, local profiles, report import/export, color previews, and OBS guidance. Hardware scans, Windows changes, backups, and display switching require the Windows desktop app. |
+| FPS recorder | Bundled, checksum-verified PresentMon 2.3.0 records a selected executable while the window is in the tray. Local CSVs, average FPS, 1% lows, P95 frame times, tweak-state snapshots, and matched before/after comparisons. Windows tracing permissions may require launching as administrator under the same account. |
+| Restore center | Save a snapshot before changing anything, turn off supported tweaks configured by any tool, or remove their registry overrides to use Windows-managed defaults. Every change is backed up. Open Windows System Protection to create an OS restore point. |
+| Browser workspace | Supports browsing, planning, local profiles, report import/export, color previews, and OBS guidance. Hardware scans, FPS recording, Windows changes, backups, and display switching require the Windows desktop app. |
 
 Settings have different purposes: some reduce overhead, some improve frame pacing or capture quality, and some are privacy or desktop preferences. **No FPS increase is guaranteed.** The app does not disable Windows security tools, updates, or system services, and does not apply timer, HPET, voltage, or overclocking modifications.
 
 ## Installer for Windows testers
 
-Download [Tweakerzzz Setup 0.2.2 for Windows x64](https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.2.2/Tweakerzzz-Setup-0.2.2-x64.exe) from the [tester release](https://github.com/marajdesigns215-dot/tweakerzzz/releases/tag/v0.2.2). Close any older Tweakerzzz window and double-click the installer. It installs for the current Windows account and creates desktop and Start menu shortcuts. Testers do **not** need Node.js, npm, a source checkout, or PowerShell launch commands.
+Download [Tweakerzzz Setup 0.3.0 for Windows x64](https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.3.0/Tweakerzzz-Setup-0.3.0-x64.exe) from the [tester release](https://github.com/marajdesigns215-dot/tweakerzzz/releases/tag/v0.3.0). Close any older Tweakerzzz window and double-click the installer. It installs for the current Windows account and creates desktop and Start menu shortcuts. Testers do **not** need Node.js, npm, a source checkout, or PowerShell launch commands.
 
 This is an **unsigned tester build**, so Windows may display an unknown-publisher or SmartScreen notice. Organization-managed policies may require a signed distribution. Uninstall in Windows Settings → Apps; profiles and restore backups are preserved. Read [tester release notes](docs/TESTER_RELEASE.md) for scanning and reporting instructions.
 
-The installer bundles Electron, the application, the tweak manifest, and native Windows helpers. Release builds verify the packaged files and test installation, desktop launch, shortcuts, and uninstall on an isolated Windows runner before publishing. A SHA-256 checksum accompanies the download. Installer checks do not validate every physical device or demonstrate a performance gain.
+The installer bundles Electron, the application, the tweak manifest, native Windows helpers, and the pinned official PresentMon collector with its license. Release builds verify the packaged files and test installation, desktop launch, shortcuts, and uninstall on an isolated Windows runner before publishing. A SHA-256 checksum accompanies the download. Installer checks do not validate every physical device or demonstrate a performance gain.
 
 ## Run the Windows desktop app from source
 
@@ -38,6 +40,7 @@ From the repository directory:
 
 ```powershell
 npm.cmd ci
+npm.cmd run prepare:collector
 npm.cmd run build
 npm.cmd run desktop
 ```
@@ -92,13 +95,37 @@ Restoring a backup can replace manual changes made to the same settings afterwar
 
 Display tests are separate from optimization backups. If a tested mode is unreadable, wait for the 15-second timer. An independent Windows helper owns the deadline and original display mode. It restores an unconfirmed change when its input closes, including an Electron exit or crash. Killing the helper itself or losing power can prevent rollback; temporary unconfirmed modes are not saved across sign-out. The app reports a driver rejection if restoration fails rather than claiming success.
 
+## Background FPS recording
+
+1. Launch your game, then open **FPS recorder**. Choose **Find open programs** or enter the game executable (for example, `game.exe`), not a path or launcher.
+2. Choose **Before tweaks**, Gaming/Streaming/Recording, a time limit, and a scene label that includes your resolution, graphics, and FPS cap. Start OBS separately for streaming/recording tests.
+3. Start recording and return to the game. **Minimize to tray** or close the window to keep recording. The tray menu can reopen the app, stop recording, or quit. The app does not automatically start at login.
+4. Stop and save, apply a small set of tweaks, sign out/restart if required, then use **Use for After run** to repeat the same workload. Native preference/display changes are blocked during a recording.
+5. Select the matching runs under **Before & after**. CSV exports contain raw PresentMon frame data; summary exports include measurements and the saved tweak states. Repeat runs before attributing differences to a tweak.
+
+Windows ETW tracing may require **Run as administrator** under the same Windows account. The app does not change group membership, security policy, or inject into games. A protected game or unsupported API may produce no frames; such runs are marked unsuccessful, not given invented FPS. Game-specific compatibility still requires tester validation.
+
+Measurements use PresentMon `FrameTime`, representing application presentation cadence, not displayed/generated FPS or OBS rendering/encoding lag. Average FPS is `1000 / mean(FrameTime)`; 1% low FPS is `1000 / mean(slowest ceil(N/100) frame times)` with at least 100 samples. P95 uses the nearest-rank 95th percentile. The most sampled process/swap chain is selected; other streams and invalid/zero intervals are disclosed. Loading screens and pauses count, so select a repeatable gameplay segment.
+
+Records and CSVs are stored in `app.getPath('userData')/recordings`. Each run is limited to 60 minutes, 64 MiB of CSV, or two million valid frame samples. Up to 100 runs are retained without automatic deletion; export and delete runs in the app. Logs remain on the PC and survive uninstall. An app crash may leave a timed trace running temporarily; the next visit to FPS recorder attempts cleanup of only this app's interrupted trace IDs and excludes those runs from comparison.
+
+The collector is [Intel PresentMon 2.3.0](https://github.com/GameTechDev/PresentMon/releases/tag/v2.3.0), distributed under the [included MIT license](vendor/presentmon/LICENSE.txt). `npm run prepare:collector` downloads the official executable and verifies the pinned SHA-256 in `electron/presentmon.json`; the installer and runtime verify it again. No arbitrary collector path or runtime download is exposed to the renderer.
+
+## Existing tweaks, defaults, and restore points
+
+**Restore center → Save settings snapshot** records all 22 supported preferences without modifying Windows, including settings created by another app. Select individual tweaks or **Select configured**, then review **turning off tweaks** or **Windows defaults**. The confirmation lists the effect of each action, and a backup preserves exact previous values/types before writing. Turning off privacy/debloat tweaks can re-enable suggestions or background behavior; review that list.
+
+**Windows defaults** removes only selected supported registry overrides and selects an existing Balanced plan if requested. It does not reconstruct an OEM factory image, remove installed software, reset BIOS/drivers, or guarantee a particular effective value. Organization policy and Windows version can still determine behavior. Use a saved backup for exact previous values. Custom power schemes are retained.
+
+**Open System Protection** launches Windows' restore-point dialog. Select the system drive, enable protection through Configure if necessary, then choose Create. Windows handles privileges and creation; the app does not claim a restore point exists without confirmation from Windows. An app settings snapshot and a Windows restore point have different coverage; neither backs up personal files.
+
 ## Validate performance and native behavior
 
 Use the same game scene, graphics settings, and capture workload before and after each small set of changes. Compare average FPS, 1% lows, frame-time consistency, temperatures, and OBS rendering/encoding lag. A Ryzen Balanced power setup may outperform or match High performance while using less power. An RTX 4060 benefits most from changes that address the actual GPU, VRAM, or capture bottleneck.
 
 `npm test` checks hardware-report validation, catalog/native allowlist agreement, request validation, IPC origin isolation, and display-confirmation/rollback orchestration with mocked native processes. `npm run build` checks TypeScript and produces the renderer bundle. These checks do not demonstrate actual registry, driver, or hardware behavior.
 
-Development runs in a Linux cloud workspace; native checks run separately on isolated Windows GitHub Actions runners. Those runners verify inventory queries, setting detection, registry backup/restore, and the installer lifecycle. This does not establish compatibility with every peripheral or display, or demonstrate an FPS gain.
+Development runs in a Linux cloud workspace; native checks run separately on isolated Windows GitHub Actions runners. Those runners verify inventory queries, setting detection, registry backup/restore including external preferences and defaults, real Direct3D presentation capture using a software WARP renderer, and the installer lifecycle. The synthetic rendering test validates collection, not gaming performance. This does not establish compatibility with every peripheral or display, or demonstrate an FPS gain.
 
 GitHub Actions is configured to build and test on `windows-latest` with Node 24, parse native scripts with Windows PowerShell 5.1, verify read-only hardware and tweak queries, and run a real registry integration test on the isolated runner. That test temporarily writes transparency and menu delay, verifies the backup, and restores original values. Pushes to main build and retain an unsigned installer artifact after validation. Version tags publish the verified installer and checksum as a GitHub prerelease. The installer is also available through a manually dispatched build.
 
@@ -111,11 +138,11 @@ GitHub Actions is configured to build and test on `windows-latest` with Node 24,
 - `electron/scanner.cjs` and `electron/tweak-status.cjs` — resilient read-only Windows inventory and current-setting detection.
 - `tests/` — report validation and mocked native-boundary tests.
 
-The browser workflow can also be exercised with `python tests/ui_smoke.py` when Python Playwright and Chromium are installed. This checks exports, report validation, saved profiles, mobile layout, and mocked desktop integration. Set `TWEAKER_URL` to test a production preview. On a Windows **test account**, `powershell -NoProfile -File tests/windows.integration.ps1 -AllowLocalSettingChanges` exercises real registry backup/restore; it does not test monitor switching or FPS.
+The browser workflow can also be exercised with `python tests/ui_smoke.py` when Python Playwright and Chromium are installed. This checks exports, report validation, saved profiles, mobile layout, and mocked desktop integration. Set `TWEAKER_URL` to test a production preview. On a Windows **test account**, `powershell -NoProfile -File tests/windows.integration.ps1 -AllowLocalSettingChanges` exercises real registry backup/restore; it does not test monitor switching; `node tests/windows.capture.cjs` separately verifies real ETW FPS collection with a CI renderer.
 
 ## Updating older versions and scan errors
 
-Close every Tweakerzzz window, download the latest GitHub ZIP, and extract it to a new folder. Open a terminal there and run `npm.cmd ci`, `npm.cmd run build`, then `npm.cmd run desktop`. Confirm the header says **v0.2.2**. This release uses larger text, brighter descriptions, and larger buttons/switches across all screens.
+Close every Tweakerzzz window, download the latest GitHub ZIP, and extract it to a new folder. Open a terminal there and run `npm.cmd ci`, `npm.cmd run build`, then `npm.cmd run desktop`. Confirm the header says **v0.3.0**. This release uses larger text, brighter descriptions, and larger buttons/switches across all screens.
 
 The original error “scan.ps1 is not digitally signed” came from Windows marking a downloaded ZIP's scripts as Internet files. v0.2.0 scans and read-only tweak checks do not depend on that script. No PowerShell execution policy needs to change for these reads. **Apply/restore and display changes still use the native script trust policy.** If you trust the ZIP downloaded from your repository, use its **Properties → Unblock → Apply**, then extract it again to a new folder; do not disable organizational policy. An organization that requires signed software may need an approved signed build.
 

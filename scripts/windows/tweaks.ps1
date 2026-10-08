@@ -198,36 +198,55 @@ try {
         'list' {
             $items = @()
             foreach ($backup in $history) {
-                $items += [ordered]@{ id = $backup.id; createdAt = $backup.createdAt; count = @($backup.ids).Count }
+                $items += [ordered]@{ id = $backup.id; createdAt = $backup.createdAt; count = @($backup.ids).Count; action = $backup.action; ids = @($backup.ids) }
             }
             $data = @($items)
         }
-        'apply' {
+        { $_ -in @('apply', 'disable', 'defaults', 'snapshot') } {
+            $operation = [string]$request.action
             if (@($history | Where-Object { $_.status -in @('pending', 'rollback-failed') }).Count -gt 0) { throw 'An earlier change did not finish. Restore the newest backup before applying more preferences.' }
             $ids = @($request.ids)
             if ($ids.Count -lt 1 -or $ids.Count -gt $manifest.Count) { throw 'Invalid optimization selection.' }
             if (@($ids | Select-Object -Unique).Count -ne $ids.Count) { throw 'Duplicate optimization IDs are not allowed.' }
             foreach ($id in $ids) { if ($id -isnot [string] -or -not $manifest.ContainsKey($id)) { throw 'Unsupported optimization ID.' } }
-            # Recheck immediately before writing, including changes made by
-            # Windows or another tool since the renderer last checked.
-            $skipped = @($ids | Where-Object { (Get-TweakStatus $_).status -eq 'enabled' })
-            $ids = @($ids | Where-Object { $_ -notin $skipped })
-            if ($ids.Count -eq 0) {
-                $data = @{ backupId = $null; applied = @(); skipped = $skipped; message = 'All selected tweaks already match your saved Windows settings. No changes or backup were needed.' }
-                break
-            }
+            $targetPower = if ($operation -eq 'apply') { '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c' } else { '381b4222-f694-41f0-9685-ff5bb260df2e' }
+            $skipped = @()
             $specifications = @{}
             foreach ($id in $ids) {
-                if ($id -isnot [string] -or -not $manifest.ContainsKey($id)) { throw 'Unsupported optimization ID.' }
-                foreach ($specification in $manifest[$id]) { $specifications[$specification.path + '|' + $specification.name] = $specification }
+                $desired = @()
+                foreach ($original in $manifest[$id]) {
+                    $remove = $operation -eq 'defaults' -or ($operation -eq 'disable' -and $null -eq $original.disabledValue)
+                    $value = if ($operation -eq 'disable') { $original.disabledValue } else { $original.value }
+                    $desired += [ordered]@{ path = $original.path; name = $original.name; kind = $original.kind; value = $value; remove = $remove }
+                }
+                $desiredMatches = $operation -ne 'snapshot'
+                if ($id -eq 'power-plan' -and $desiredMatches) {
+                    $active = Invoke-Power @('/getactivescheme')
+                    $desiredMatches = $active -match $targetPower
+                } else {
+                    foreach ($specification in $desired) {
+                        $current = Read-Preference $specification
+                        if ($specification.remove) { if ($current.existed) { $desiredMatches = $false } }
+                        elseif (-not $current.existed -or $current.kind -ne $specification.kind -or [string]$current.value -cne [string]$specification.value) { $desiredMatches = $false }
+                    }
+                }
+                if ($desiredMatches) { $skipped += $id; continue }
+                foreach ($specification in $desired) { $specifications[$specification.path + '|' + $specification.name] = $specification }
+            }
+            $ids = @($ids | Where-Object { $_ -notin $skipped })
+            if ($ids.Count -eq 0) {
+                $data = @{ backupId = $null; applied = @(); skipped = $skipped; message = 'The selected preferences already match this action. No changes or backup were needed.' }
+                break
             }
             $originalPower = $null
             if ($ids -contains 'power-plan') {
                 $active = Invoke-Power @('/getactivescheme')
                 if ($active -notmatch '[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}') { throw 'Could not identify the active Windows power scheme.' }
                 $originalPower = $Matches[0]
-                $available = Invoke-Power @('/list')
-                if ($available -notmatch '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c') { throw 'The High performance plan is not available on this PC. Use Windows Power settings instead.' }
+                if ($operation -ne 'snapshot') {
+                    $available = Invoke-Power @('/list')
+                    if ($available -notmatch $targetPower) { throw 'The requested power plan is not available. Leave Power plan unselected and use Windows Power settings.' }
+                }
             }
             $records = @()
             $createdKeys = @{}
@@ -240,12 +259,20 @@ try {
                     if ($null -eq $key) { $createdKeys[$keyPath] = $true } else { $key.Dispose() }
                 }
             }
-            $backup = [ordered]@{ version = 1; id = [Guid]::NewGuid().ToString('N'); createdAt = [DateTime]::UtcNow.ToString('o'); ids = @($ids); status = 'pending'; registry = @($records); createdKeys = @($createdKeys.Keys); powerScheme = $originalPower }
+            $backup = [ordered]@{ version = 1; id = [Guid]::NewGuid().ToString('N'); createdAt = [DateTime]::UtcNow.ToString('o'); ids = @($ids); action = $operation; status = 'pending'; registry = @($records); createdKeys = @($createdKeys.Keys); powerScheme = $originalPower }
+            if ($operation -eq 'snapshot') { $backup.createdKeys = @() }
             $file = Join-Path $backupDirectory ($backup.id + '.json')
             Save-Backup $backup $file
             try {
-                foreach ($specification in $specifications.Values) { Write-Preference $specification }
-                if ($ids -contains 'power-plan') { $null = Invoke-Power @('/setactive', '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c') }
+                if ($operation -ne 'snapshot') {
+                    foreach ($specification in $specifications.Values) {
+                        if ($specification.remove) {
+                            $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($specification.path, $true)
+                            if ($null -ne $key) { try { $key.DeleteValue($specification.name, $false) } finally { $key.Dispose() } }
+                        } else { Write-Preference $specification }
+                    }
+                    if ($ids -contains 'power-plan') { $null = Invoke-Power @('/setactive', $targetPower) }
+                }
                 $backup.status = 'applied'
                 Save-Backup $backup $file
             } catch {
@@ -261,7 +288,15 @@ try {
                 }
                 throw ('No changes were kept. The transaction was rolled back: ' + $applyFailure)
             }
-            $data = [ordered]@{ backupId = $backup.id; applied = @($ids); skipped = $skipped; message = ('Saved ' + $ids.Count + ' changes with a reversible backup; skipped ' + $skipped.Count + ' already configured settings. Sign out and back in for all Windows preferences to take effect. Some preferences depend on your Windows build or organizational policy.') }
+            $message = switch ($operation) {
+                'snapshot' { 'Saved a snapshot of the selected supported settings. No Windows settings were changed. This is not a Windows System Restore point.' }
+                'defaults' { 'Removed selected registry overrides and used Balanced for the power plan if selected. Windows or organization policy supplies the defaults; this is not an OEM factory reset.' }
+                'disable' { 'Turned off the selected tweaks, including preferences configured outside Tweakerzzz. Your previous values were backed up.' }
+                default { 'Saved the selected changes with a reversible backup.' }
+            }
+            if ($operation -ne 'snapshot') { $message += ' Sign out and back in for all preferences to take effect. Windows build and organization policy can affect behavior.' }
+            $data = [ordered]@{ backupId = $backup.id; applied = @($ids); skipped = $skipped; message = $message }
+
         }
         'restore' {
             if ($request.id -isnot [string] -or $request.id -notmatch '^[a-f0-9]{32}$') { throw 'Invalid backup ID.' }

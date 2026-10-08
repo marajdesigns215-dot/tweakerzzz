@@ -40,6 +40,13 @@ function verify() {
     assert.deepEqual(fs.readFileSync(path.join(resources, 'windows', file)), original, `External Windows resource mismatch: ${file}`);
     assert.deepEqual(asar.extractFile(archive, path.join('scripts', 'windows', file)), original, `Internal Windows resource mismatch: ${file}`);
   }
+  const collector = require('../electron/presentmon.json');
+  const collectorBytes = fs.readFileSync(path.join(resources, 'presentmon', collector.file));
+  checkPe(path.join(resources, 'presentmon', collector.file), 0x8664);
+  assert.equal(crypto.createHash('sha256').update(collectorBytes).digest('hex'), collector.sha256, 'Bundled PresentMon checksum mismatch');
+  assert.deepEqual(fs.readFileSync(path.join(resources, 'presentmon', 'LICENSE.txt')), fs.readFileSync(path.join(root, 'vendor', 'presentmon', 'LICENSE.txt')));
+  assert.deepEqual(asar.extractFile(archive, path.join('electron', 'presentmon.json')), fs.readFileSync(path.join(root, 'electron', 'presentmon.json')));
+  assert.deepEqual(fs.readFileSync(path.join(resources, 'app.ico')), fs.readFileSync(path.join(root, 'build', 'icon.ico')));
   const sum = crypto.createHash('sha256').update(fs.readFileSync(installer)).digest('hex');
   fs.writeFileSync(path.join(root, 'release', 'SHA256SUMS.txt'), `${sum}  ${installerName}\n`);
   console.log(`PASS: ${installerName}, Windows x64 application, renderer, all native modules/resources, and SHA-256 checksum.`);

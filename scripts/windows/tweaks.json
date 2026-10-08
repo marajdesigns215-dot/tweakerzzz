@@ -6,13 +6,15 @@
         "path": "Software\\Microsoft\\GameBar",
         "name": "AutoGameModeEnabled",
         "kind": "DWord",
-        "value": 1
+        "value": 1,
+        "disabledValue": 0
       },
       {
         "path": "Software\\Microsoft\\GameBar",
         "name": "AllowAutoGameMode",
         "kind": "DWord",
-        "value": 1
+        "value": 1,
+        "disabledValue": 0
       }
     ]
   },
@@ -23,13 +25,15 @@
         "path": "System\\GameConfigStore",
         "name": "GameDVR_Enabled",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       },
       {
         "path": "Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR",
         "name": "AppCaptureEnabled",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       }
     ]
   },
@@ -40,19 +44,22 @@
         "path": "Control Panel\\Mouse",
         "name": "MouseSpeed",
         "kind": "String",
-        "value": "0"
+        "value": "0",
+        "disabledValue": "1"
       },
       {
         "path": "Control Panel\\Mouse",
         "name": "MouseThreshold1",
         "kind": "String",
-        "value": "0"
+        "value": "0",
+        "disabledValue": "6"
       },
       {
         "path": "Control Panel\\Mouse",
         "name": "MouseThreshold2",
         "kind": "String",
-        "value": "0"
+        "value": "0",
+        "disabledValue": "10"
       }
     ]
   },
@@ -63,7 +70,8 @@
         "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
         "name": "EnableTransparency",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       }
     ]
   },
@@ -74,7 +82,8 @@
         "path": "Control Panel\\Desktop\\WindowMetrics",
         "name": "MinAnimate",
         "kind": "String",
-        "value": "0"
+        "value": "0",
+        "disabledValue": "1"
       }
     ]
   },
@@ -85,7 +94,8 @@
         "path": "Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications",
         "name": "GlobalUserDisabled",
         "kind": "DWord",
-        "value": 1
+        "value": 1,
+        "disabledValue": 0
       }
     ]
   },
@@ -96,7 +106,8 @@
         "path": "Software\\Microsoft\\GameBar",
         "name": "ShowStartupPanel",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       }
     ]
   },
@@ -107,7 +118,8 @@
         "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize",
         "name": "StartupDelayInMSec",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": null
       }
     ]
   },
@@ -118,7 +130,8 @@
         "path": "Control Panel\\Desktop",
         "name": "MenuShowDelay",
         "kind": "String",
-        "value": "100"
+        "value": "100",
+        "disabledValue": "400"
       }
     ]
   },
@@ -129,7 +142,8 @@
         "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
         "name": "TaskbarAnimations",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       }
     ]
   },
@@ -140,7 +154,8 @@
         "path": "Software\\Microsoft\\Windows\\DWM",
         "name": "EnableAeroPeek",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       }
     ]
   },
@@ -151,13 +166,15 @@
         "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
         "name": "SubscribedContent-338388Enabled",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       },
       {
         "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
         "name": "SystemPaneSuggestionsEnabled",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       }
     ]
   },
@@ -168,7 +185,8 @@
         "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Privacy",
         "name": "TailoredExperiencesWithDiagnosticDataEnabled",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       }
     ]
   },
@@ -179,7 +197,8 @@
         "path": "Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo",
         "name": "Enabled",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       }
     ]
   },
@@ -190,7 +209,8 @@
         "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
         "name": "SubscribedContent-338389Enabled",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       }
     ]
   },
@@ -201,13 +221,15 @@
         "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
         "name": "RotatingLockScreenOverlayEnabled",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       },
       {
         "path": "Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
         "name": "SubscribedContent-338387Enabled",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       }
     ]
   },
@@ -218,7 +240,8 @@
         "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
         "name": "ShowSyncProviderNotifications",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       }
     ]
   },
@@ -229,7 +252,8 @@
         "path": "Software\\Microsoft\\Windows\\CurrentVersion\\SearchSettings",
         "name": "IsDynamicSearchBoxEnabled",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       }
     ]
   },
@@ -240,7 +264,8 @@
         "path": "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
         "name": "TaskbarDa",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       }
     ]
   },
@@ -251,7 +276,8 @@
         "path": "Software\\Policies\\Microsoft\\Edge",
         "name": "BackgroundModeEnabled",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       }
     ]
   },
@@ -262,7 +288,8 @@
         "path": "Software\\Policies\\Microsoft\\Edge",
         "name": "StartupBoostEnabled",
         "kind": "DWord",
-        "value": 0
+        "value": 0,
+        "disabledValue": 1
       }
     ]
   },

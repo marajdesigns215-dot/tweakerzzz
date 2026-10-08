@@ -12,7 +12,7 @@ async function listBackups(directory) {
     try {
       const backup = JSON.parse(await fs.readFile(path.join(directory, file.name), 'utf8'));
       if (backup.version !== 1 || backup.id + '.json' !== file.name || !['pending', 'applied', 'rollback-failed'].includes(backup.status) || !Number.isFinite(Date.parse(backup.createdAt)) || !Array.isArray(backup.ids)) continue;
-      items.push({ id: backup.id, createdAt: backup.createdAt, count: backup.ids.length });
+      items.push({ id: backup.id, createdAt: backup.createdAt, count: backup.ids.length, action: backup.action || 'apply', ids: backup.ids });
     } catch (error) {
       throw new Error(`Cannot read backup ${file.name}. Keep this file and repair backup access before applying more tweaks. ${error.message}`);
     }

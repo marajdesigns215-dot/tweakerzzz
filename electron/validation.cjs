@@ -23,6 +23,7 @@ const SETTINGS = Object.freeze({
   network: 'ms-settings:network-status',
   power: 'ms-settings:powersleep',
   nvidia: 'nvidia',
+  protection: 'protection',
 });
 
 function validateTweakIds(ids) {

@@ -1,0 +1,53 @@
+'use strict';
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const { spawn, execFileSync } = require('node:child_process');
+const { createCaptureManager, listPrograms } = require('../electron/capture.cjs');
+const { getTweakStatus } = require('../electron/tweak-status.cjs');
+const spec = require('../electron/presentmon.json');
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function main() {
+  assert.equal(process.platform, 'win32');
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'TweakerzzzFrames-'));
+  let renderer, capture;
+  try {
+    const probe = path.join(directory, 'TweakerzzzFrameProbe.exe');
+    const compiler = path.join(process.env.SystemRoot, 'Microsoft.NET', 'Framework64', 'v4.0.30319', 'csc.exe');
+    execFileSync(compiler, ['/nologo', '/target:exe', '/r:System.Windows.Forms.dll', '/r:System.Drawing.dll', '/out:' + probe, path.join(__dirname, 'windows.frameprobe.cs')], { windowsHide: true, timeout: 30000, stdio: 'pipe' });
+    renderer = spawn(probe, [], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    await new Promise((resolve, reject) => {
+      let output = '', errors = '';
+      const timeout = setTimeout(() => reject(new Error('D3D11 probe did not initialize. ' + errors)), 15000);
+      renderer.stdout.on('data', chunk => { output += chunk; if (output.includes('READY')) { clearTimeout(timeout); resolve(); } });
+      renderer.stderr.on('data', chunk => { errors += chunk; });
+      renderer.once('error', error => { clearTimeout(timeout); reject(error); });
+      renderer.once('exit', code => { if (!output.includes('READY')) { clearTimeout(timeout); reject(new Error('D3D11 probe exited: ' + code + ' ' + errors)); } });
+    });
+    const programs = await listPrograms(); assert.ok(programs.includes('TweakerzzzFrameProbe.exe'), 'Live program list must find the rendering process.');
+    capture = createCaptureManager({ directory, executable: path.join(__dirname, '..', 'vendor', 'presentmon', spec.file), snapshot: getTweakStatus });
+    await capture.start({ processName: 'TweakerzzzFrameProbe.exe', seconds: 30, phase: 'before', context: 'Gaming', scenario: 'CI D3D11 WARP frame probe' });
+    for (let i = 0; i < 30 && capture.isActive() && capture.status().frames < 120; i++) await delay(500);
+    const record = capture.isActive() ? await capture.stop() : (await capture.list())[0];
+    assert.equal(record.status, 'completed', record.error || JSON.stringify(record));
+    assert.ok(record.summary.frames >= 30, 'Real Direct3D frame samples are required.');
+    assert.ok(record.summary.averageFps > 0 && Number.isFinite(record.summary.averageFps));
+    assert.equal(record.settings.tweaks.length, 22);
+    const csv = await fs.readFile(await capture.csvPath(record.id), 'utf8');
+    assert.ok(csv.includes('FrameTime') && csv.includes('TweakerzzzFrameProbe.exe'));
+    assert.equal(capture.isActive(), false);
+    console.log(`PASS: real D3D11 presentation capture (${record.summary.frames} frames), CSV export, tweak snapshot, and trace stop.`);
+  } finally {
+    if (capture?.isActive()) await capture.stop();
+    if (renderer && renderer.exitCode === null) {
+      const closed = new Promise(resolve => renderer.once('close', resolve)); renderer.kill(); await closed;
+    }
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+}
+main().catch(error => {
+  const detail = String(error.stack || error).slice(0, 3000).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+  console.error(`::error title=Windows FPS capture validation failed::${detail}`);
+  process.exitCode = 1;
+});

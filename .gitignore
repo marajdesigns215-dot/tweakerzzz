@@ -6,3 +6,5 @@ release/
 .env*
 !.env.example
 *.tsbuildinfo
+
+vendor/presentmon/*.exe

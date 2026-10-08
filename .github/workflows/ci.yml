@@ -39,6 +39,12 @@ jobs:
       - name: Build application
         run: npm run build
 
+      - name: Prepare verified FPS collector
+        run: npm run prepare:collector
+
+      - name: Verify real Windows graphics event capture
+        run: node tests/windows.capture.cjs
+
       - name: Run automated tests
         run: npm test
 
