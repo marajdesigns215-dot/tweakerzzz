@@ -2,7 +2,7 @@
 
 A Windows gaming and content-creation workspace built with React, TypeScript, Vite, and Electron. Start with a hardware scan, review a plan, apply supported settings with a local backup, and compare your actual results.
 
-**Status: v0.2.2 development build, not a completed or Windows-validated optimizer.** The browser workflow and mocked native integration have been tested. Actual Windows scanning, registry changes, display switching, and installer execution remain unverified. Direct NVIDIA vibrance control and automatic per-device vendor tuning are not implemented; those settings currently use previews or guides.
+**Status: v0.2.2 development build.** Browser workflows and Windows inventory, tweak detection, and registry apply/restore are covered by automated checks. Tagged installers must also pass packaged-file, install, launch, shortcut, and uninstall checks before release. Monitor switching, vendor-specific devices, and actual performance results still need hardware testing. Direct NVIDIA vibrance control and automatic per-device vendor tuning are not implemented; those settings currently use previews or guides.
 
 The included reference configuration comes from the supplied screenshot: **Ryzen 9 5900X, GeForce RTX 4060 8 GB, 32 GB RAM at 3200 MHz, and Windows 11 Pro**. Reference values are labeled and are replaced by a scan or imported report; they are not measurements of the computer running the browser.
 
@@ -98,9 +98,9 @@ Use the same game scene, graphics settings, and capture workload before and afte
 
 `npm test` checks hardware-report validation, catalog/native allowlist agreement, request validation, IPC origin isolation, and display-confirmation/rollback orchestration with mocked native processes. `npm run build` checks TypeScript and produces the renderer bundle. These checks do not demonstrate actual registry, driver, or hardware behavior.
 
-The implementation was developed in a Linux cloud workspace. **Live Windows hardware scans, registry apply/restore, monitor switching, and installer execution have not been exercised there.** Validate these on a Windows test account and suitable display before relying on them on a main gaming setup.
+Development runs in a Linux cloud workspace; native checks run separately on isolated Windows GitHub Actions runners. Those runners verify inventory queries, setting detection, registry backup/restore, and the installer lifecycle. This does not establish compatibility with every peripheral or display, or demonstrate an FPS gain.
 
-GitHub Actions is configured to build and test on `windows-latest` with Node 24, parse native scripts with Windows PowerShell 5.1, verify read-only hardware and tweak queries, and run a real registry integration test on the isolated runner. That test temporarily writes transparency and menu delay, verifies the backup, and restores original values. The Windows workflow result has not been verified from this cloud workspace. Pushes to main build and retain an unsigned installer artifact after validation. Version tags publish the verified installer and checksum as a GitHub prerelease. The installer is also available through a manually dispatched build.
+GitHub Actions is configured to build and test on `windows-latest` with Node 24, parse native scripts with Windows PowerShell 5.1, verify read-only hardware and tweak queries, and run a real registry integration test on the isolated runner. That test temporarily writes transparency and menu delay, verifies the backup, and restores original values. Pushes to main build and retain an unsigned installer artifact after validation. Version tags publish the verified installer and checksum as a GitHub prerelease. The installer is also available through a manually dispatched build.
 
 ## Source map
 
@@ -135,4 +135,4 @@ This update is intended to work across testers’ devices. It does not assign th
 
 The local Logitech fallback covers `046D:C084` (G203), `046D:C092` (shared G102/G203 LIGHTSYNC), and `046D:C09D` (G102 LIGHTSYNC), using the [USB ID Repository](https://github.com/usbids/usbids/blob/master/usb.ids). Other models use device-supplied names or category guidance. Duplicate interfaces are grouped only when both product name and physical ancestry/container match; identical products on different devices remain separate. Shared receivers can still prevent exact physical-device counts.
 
-Portable tests cover parent descriptors, generic receivers, unknown OEM IDs, headset grouping, separate identical devices, cameras, report privacy, and per-device guide selection. Live Windows collection and vendor-specific device behavior still need tester verification.
+Portable tests cover parent descriptors, generic receivers, unknown OEM IDs, headset grouping, separate identical devices, cameras, report privacy, and per-device guide selection. Windows runner checks exercise live inventory collection; recognition of individual physical devices and vendor-specific behavior still need tester verification.
