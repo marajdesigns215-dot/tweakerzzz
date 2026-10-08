@@ -25,20 +25,28 @@ function checkPe(file, machine) {
   } finally { fs.closeSync(handle); }
 }
 
-checkPe(installer);
-checkPe(path.join(root, 'release', 'win-unpacked', 'Tweakerzzz.exe'), 0x8664);
-const packed = JSON.parse(asar.extractFile(archive, 'package.json').toString());
-assert.equal(packed.version, source.version);
-assert.equal(packed.main, 'electron/main.cjs');
-assert.ok(asar.extractFile(archive, 'dist/index.html').length > 0);
-for (const file of fs.readdirSync(path.join(root, 'electron')).filter(file => file.endsWith('.cjs'))) {
-  assert.deepEqual(asar.extractFile(archive, `electron/${file}`), fs.readFileSync(path.join(root, 'electron', file)), `Packaged native module mismatch: ${file}`);
+function verify() {
+  checkPe(installer);
+  checkPe(path.join(root, 'release', 'win-unpacked', 'Tweakerzzz.exe'), 0x8664);
+  const packed = JSON.parse(asar.extractFile(archive, 'package.json').toString());
+  assert.equal(packed.version, source.version);
+  assert.equal(packed.main, 'electron/main.cjs');
+  assert.ok(asar.extractFile(archive, path.join('dist', 'index.html')).length > 0);
+  for (const file of fs.readdirSync(path.join(root, 'electron')).filter(file => file.endsWith('.cjs'))) {
+    assert.deepEqual(asar.extractFile(archive, path.join('electron', file)), fs.readFileSync(path.join(root, 'electron', file)), `Packaged native module mismatch: ${file}`);
+  }
+  for (const file of fs.readdirSync(path.join(root, 'scripts', 'windows'))) {
+    const original = fs.readFileSync(path.join(root, 'scripts', 'windows', file));
+    assert.deepEqual(fs.readFileSync(path.join(resources, 'windows', file)), original, `External Windows resource mismatch: ${file}`);
+    assert.deepEqual(asar.extractFile(archive, path.join('scripts', 'windows', file)), original, `Internal Windows resource mismatch: ${file}`);
+  }
+  const sum = crypto.createHash('sha256').update(fs.readFileSync(installer)).digest('hex');
+  fs.writeFileSync(path.join(root, 'release', 'SHA256SUMS.txt'), `${sum}  ${installerName}\n`);
+  console.log(`PASS: ${installerName}, Windows x64 application, renderer, all native modules/resources, and SHA-256 checksum.`);
 }
-for (const file of fs.readdirSync(path.join(root, 'scripts', 'windows'))) {
-  const original = fs.readFileSync(path.join(root, 'scripts', 'windows', file));
-  assert.deepEqual(fs.readFileSync(path.join(resources, 'windows', file)), original, `External Windows resource mismatch: ${file}`);
-  assert.deepEqual(asar.extractFile(archive, `scripts/windows/${file}`), original, `Internal Windows resource mismatch: ${file}`);
+try { verify(); }
+catch (error) {
+  const detail = String(error.message).slice(0, 2000).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+  console.error(`::error title=Packaged application verification failed::${detail}`);
+  process.exitCode = 1;
 }
-const sum = crypto.createHash('sha256').update(fs.readFileSync(installer)).digest('hex');
-fs.writeFileSync(path.join(root, 'release', 'SHA256SUMS.txt'), `${sum}  ${installerName}\n`);
-console.log(`PASS: ${installerName}, Windows x64 application, renderer, all native modules/resources, and SHA-256 checksum.`);
