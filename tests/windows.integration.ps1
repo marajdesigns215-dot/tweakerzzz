@@ -5,12 +5,11 @@ if ($env:OS -ne 'Windows_NT') { throw 'This integration test requires Windows.' 
 if (-not $AllowLocalSettingChanges -and -not ($env:GITHUB_ACTIONS -eq 'true' -and $env:RUNNER_OS -eq 'Windows')) {
     throw 'Run on an isolated Windows CI runner, or use -AllowLocalSettingChanges on a test account. This temporarily changes and restores transparency and menu delay.'
 }
-$nativeScript = Join-Path $PSScriptRoot '..\scripts\windows\tweaks.ps1'
 $backupDirectory = Join-Path ([IO.Path]::GetTempPath()) ('TweakerzzzIntegration-' + [Guid]::NewGuid().ToString('N'))
-$exe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 function Invoke-TestNative($payload) {
     $payload.backupDirectory = $backupDirectory
-    $raw = $payload | ConvertTo-Json -Depth 5 -Compress | & $exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File $nativeScript
+    $encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($payload | ConvertTo-Json -Depth 5 -Compress)))
+    $raw = & node (Join-Path $PSScriptRoot 'windows.invoke.cjs') $encoded
     $code = $LASTEXITCODE
     $result = ($raw -join "`n") | ConvertFrom-Json
     if ($code -ne 0 -or -not $result.ok) { throw ('Native integration operation failed: ' + $result.error) }
