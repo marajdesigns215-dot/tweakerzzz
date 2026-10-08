@@ -2,6 +2,12 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('tweaker', Object.freeze({
+  updateStatus: () => ipcRenderer.invoke('tweaker:update-status'),
+  checkForUpdates: () => ipcRenderer.invoke('tweaker:update-check'),
+  downloadUpdate: () => ipcRenderer.invoke('tweaker:update-download'),
+  cancelUpdate: () => ipcRenderer.invoke('tweaker:update-cancel'),
+  installUpdate: () => ipcRenderer.invoke('tweaker:update-install'),
+  openUpdateRelease: () => ipcRenderer.invoke('tweaker:update-release'),
   scanDrivers: () => ipcRenderer.invoke('tweaker:drivers'),
   openDriverSource: id => ipcRenderer.invoke('tweaker:driver-source', id),
   colorStatus: () => ipcRenderer.invoke('tweaker:color-status'),

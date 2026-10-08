@@ -81,6 +81,12 @@ async function until(fn, label, timeout = 45000) {
     assert.equal(await evaluate("!!document.querySelector('[role=alert]')"), false, 'Peripheral scan failed');
     await nav('Streaming lab');
     for (const name of ['Twitch', 'YouTube', 'Recording']) { await click(name); await waitFor(`document.querySelector('.obs-panel .pill')?.textContent===${JSON.stringify(name)}`, name + ' profile'); }
+    await nav('Updates');
+    const updates = await evaluate('window.tweaker.updateStatus()');
+    assert.equal(updates.supported, true);
+    assert.equal(updates.phase, 'idle', 'Updates must not check automatically');
+    assert.equal(updates.currentVersion, require('../package.json').version);
+    await waitFor("[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Check for updates') && !b.disabled)", 'manual update control');
     await nav('Restore center'); await click('Save settings snapshot');
     await waitFor("document.querySelector('.backup-list')?.textContent.includes('22 settings')", 'snapshot through real IPC');
     await fs.mkdir('release/qa', { recursive: true });

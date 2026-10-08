@@ -14,9 +14,10 @@ const { scanDrivers, driverSource } = require('./drivers.cjs');
 const { createColorManager } = require('./colors.cjs');
 const { createCaptureManager, listPrograms } = require('./capture.cjs');
 const collector = require('./presentmon.json');
+const { createUpdateManager, RELEASES_URL } = require('./updates.cjs');
 const { createObsClient } = require('./obs.cjs');
 const obs = createObsClient();
-let capture, tray, captureStart, colors;
+let capture, tray, captureStart, colors, updates;
 
 let window;
 let nativeBusy = false;
@@ -208,9 +209,16 @@ function registerHandlers() {
   const handle = (channel, fn) => ipcMain.handle(channel, async (event, ...args) => {
     requireTrustedSender(event);
     requireWindows();
+    if (updates?.isInstalling() && channel !== 'tweaker:update-status') throw new Error('An update is being installed. Please wait for Tweakerzzz to restart.');
     return fn(...args);
   });
   const backupDirectory = path.join(app.getPath('userData'), 'backups');
+  handle('tweaker:update-status', () => updates.status());
+  handle('tweaker:update-check', () => updates.check());
+  handle('tweaker:update-download', () => updates.download());
+  handle('tweaker:update-cancel', () => updates.cancel());
+  handle('tweaker:update-install', () => updates.install());
+  handle('tweaker:update-release', () => shell.openExternal(RELEASES_URL));
   handle('tweaker:scan', () => scanSystem());
   handle('tweaker:drivers', () => scanDrivers());
   handle('tweaker:driver-source', id => shell.openExternal(driverSource(id)));
@@ -332,6 +340,17 @@ else {
       executable: app.isPackaged ? path.join(process.resourcesPath, 'presentmon', collector.file) : path.join(__dirname, '..', 'vendor', 'presentmon', collector.file),
       snapshot: getTweakStatus, readHardware: scanSystem, obs,
       onChange: record => { updateTray(); if (record?.status === 'failed' && window && !window.isVisible()) showWindow(); },
+    });
+    updates = createUpdateManager({
+      engine: app.isPackaged && process.platform === 'win32' ? require('electron-updater').autoUpdater : null,
+      currentVersion: app.getVersion(),
+      prepareInstall: async () => {
+        if (nativeBusy || captureStart) throw new Error('Wait for the current Windows operation to finish, then install again.');
+        if (capture?.isActive()) throw new Error('Stop the FPS recording before installing. Your saved runs will be kept.');
+        if (pendingDisplay) throw new Error('Finish or cancel the resolution test before installing.');
+        if (colors?.isActive() || colors?.hasRecoveryPending()) throw new Error('Stop color profiles and restore the display in Display studio before installing.');
+        await colors?.close();
+      },
     });
     registerHandlers();
     createWindow();

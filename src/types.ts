@@ -42,9 +42,21 @@ export interface DriverReport {
   devices: { name: string; category: string; provider: string; version: string }[];
   recommendations: { id: string; category: string; title: string; device: string; source: string | null; sourceName: string; reason: string; note: string; confidence: string }[];
 }
+export interface UpdateStatus {
+  supported: boolean; currentVersion: string;
+  phase: 'idle' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'cancelling' | 'downloaded' | 'installing' | 'error';
+  availableVersion: string | null; releaseNotes: string; publishedAt: string | null; checkedAt: string | null;
+  progress: { percent: number; transferred: number; total: number } | null; error: string;
+}
 declare global {
   interface Window {
     tweaker?: {
+      updateStatus(): Promise<UpdateStatus>;
+      checkForUpdates(): Promise<UpdateStatus>;
+      downloadUpdate(): Promise<UpdateStatus>;
+      cancelUpdate(): Promise<UpdateStatus>;
+      installUpdate(): Promise<UpdateStatus>;
+      openUpdateRelease(): Promise<void>;
       scanDrivers(): Promise<DriverReport>;
       openDriverSource(id: string): Promise<void>;
       colorStatus(): Promise<ColorStatus>;

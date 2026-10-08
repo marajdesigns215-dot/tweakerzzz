@@ -47,10 +47,11 @@ test('display requests require bounded integers and discard extra fields', () =>
   }
 });
 
-async function nativeHarness({ singleInstance = true } = {}) {
+async function nativeHarness({ singleInstance = true, updaterEngine = null } = {}) {
   const handlers = new Map(), calls = [], children = [], timers = new Map(), windows = [], errors = [];
   const app = new EventEmitter();
   app.isPackaged = false;
+  app.getVersion = () => '0.6.0';
   app.whenReady = () => Promise.resolve();
   app.getPath = () => '/tmp/tweaker-test-user-data';
   app.requestSingleInstanceLock = () => singleInstance;
@@ -104,10 +105,12 @@ async function nativeHarness({ singleInstance = true } = {}) {
   const nativeDirectory = path.join(__dirname, '../electron');
   const capture = { active: false, isActive() { return this.active; }, async start(input) { require('../electron/capture.cjs').validateCapture(input); this.active = true; return { active: true }; }, async stop() { this.active = false; }, status() { return { active: this.active }; } };
   class FakeTray extends EventEmitter { setToolTip() {} setContextMenu() {} }
+  const colors = { active: false, recovery: false, isActive() { return this.active; }, hasRecoveryPending() { return this.recovery; }, close: async () => {} };
   const fakeRequire = id => {
+    if (id === './updates.cjs') return { ...require('../electron/updates.cjs'), createUpdateManager: options => require('../electron/updates.cjs').createUpdateManager({ ...options, engine: updaterEngine }) };
     if (id === './snapshots.cjs') return { saveSnapshot: async (_directory, ids) => ({ backupId: 'a'.repeat(32), applied: ids }) };
     if (id === './drivers.cjs') return { scanDrivers: async () => ({ recommendations: [] }), driverSource: require('../electron/drivers.cjs').driverSource };
-    if (id === './colors.cjs') return { createColorManager: () => ({ isActive: () => false, close: async () => {} }) };
+    if (id === './colors.cjs') return { createColorManager: () => colors };
     if (id === './obs.cjs') return { createObsClient: () => ({ status: () => ({ connected: false }) }) };
     if (id === './capture.cjs') return { createCaptureManager: () => capture, listPrograms: async () => [] };
     if (id === './presentmon.json') return require('../electron/presentmon.json');
@@ -129,7 +132,7 @@ async function nativeHarness({ singleInstance = true } = {}) {
   await Promise.resolve();
   const window = windows[0];
   const event = window && { sender: window.webContents, senderFrame: window.webContents.mainFrame };
-  return { app, calls, children, errors, timers, window, event, invoke: (channel, ...args) => handlers.get(channel)(event, ...args), invokeAs: (channel, sender, ...args) => handlers.get(channel)(sender, ...args) };
+  return { app, calls, children, errors, timers, window, event, capture, colors, invoke: (channel, ...args) => handlers.get(channel)(event, ...args), invokeAs: (channel, sender, ...args) => handlers.get(channel)(sender, ...args) };
 }
 
 test('IPC rejects subframes and remote documents before starting a native process', async () => {
@@ -223,4 +226,33 @@ test('FPS recording keeps a closed window in the tray and blocks configuration c
   assert.equal(app.calls[0].payload.action, 'disable');
   await assert.rejects(app.invoke('tweaker:preferences', 'factory-reset-pc', ['game-mode']), /Unsupported/);
   app.app.emit('second-instance'); assert.equal(app.window.hidden, false);
+});
+
+test('update installation is blocked during FPS recording, color recovery, and display tests', async () => {
+  const { FakeUpdater, deferred } = require('./helpers/updater.cjs');
+  const engine = new FakeUpdater();
+  const h = await nativeHarness({ updaterEngine: engine });
+  await assert.rejects(h.invokeAs('tweaker:update-check', { sender: {}, senderFrame: {} }), /Untrusted/);
+  assert.equal(engine.checks, 0);
+  await h.invoke('tweaker:update-check'); await h.invoke('tweaker:update-download');
+  h.capture.active = true;
+  assert.match((await h.invoke('tweaker:update-install')).error, /Stop the FPS recording/);
+  h.capture.active = false;
+  const applying = h.invoke('tweaker:apply', ['game-mode']);
+  assert.match((await h.invoke('tweaker:update-install')).error, /current Windows operation/);
+  await applying;
+  h.colors.active = true;
+  assert.match((await h.invoke('tweaker:update-install')).error, /Stop color profiles/);
+  h.colors.active = false; h.colors.recovery = true;
+  assert.match((await h.invoke('tweaker:update-install')).error, /restore the display/);
+  h.colors.recovery = false;
+  await h.invoke('tweaker:display-set', { width: 1920, height: 1080, refreshRate: 144 });
+  assert.match((await h.invoke('tweaker:update-install')).error, /resolution test/);
+  h.children.at(-1).expire(); await Promise.resolve();
+  assert.equal(engine.installs, 0);
+  const close = deferred(); h.colors.close = () => close.promise;
+  const install = h.invoke('tweaker:update-install');
+  await assert.rejects(h.invoke('tweaker:apply', ['game-mode']), /update is being installed/);
+  assert.equal((await h.invoke('tweaker:update-status')).phase, 'installing');
+  close.resolve(); await install; assert.equal(engine.installs, 1);
 });

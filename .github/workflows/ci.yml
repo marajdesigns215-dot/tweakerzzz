@@ -120,6 +120,8 @@ jobs:
           path: |
             release/Tweakerzzz-Setup-*-x64.exe
             release/SHA256SUMS.txt
+            release/latest.yml
+            release/*.blockmap
             release/qa/*
           if-no-files-found: error
           retention-days: 14
@@ -146,4 +148,4 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           test "$RELEASE_TAG" = "v$(node -p 'require("./package.json").version')"
-          gh release create "$RELEASE_TAG" release/*.exe release/SHA256SUMS.txt --verify-tag --prerelease --title "Tweakerzzz $RELEASE_TAG - Windows tester installer" --notes-file docs/TESTER_RELEASE.md
+          gh release create "$RELEASE_TAG" release/*.exe release/*.blockmap release/latest.yml release/SHA256SUMS.txt --verify-tag --prerelease --title "Tweakerzzz $RELEASE_TAG - Windows tester installer" --notes-file docs/TESTER_RELEASE.md

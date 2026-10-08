@@ -9,8 +9,29 @@ $directory = Join-Path $env:RUNNER_TEMP ('TweakerzzzSmoke-' + [Guid]::NewGuid().
 $application = Join-Path $directory 'Tweakerzzz.exe'
 $process = $null
 try {
-    $install = Start-Process -FilePath $installer -ArgumentList @('/S', "/D=$directory") -Wait -PassThru
+    # Verify a real upgrade from the last released build, with pinned artifact bytes.
+    $baseline = Join-Path $env:RUNNER_TEMP 'Tweakerzzz-Setup-0.5.2-x64.exe'
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.5.2/Tweakerzzz-Setup-0.5.2-x64.exe' -OutFile $baseline
+    if ((Get-FileHash -LiteralPath $baseline -Algorithm SHA256).Hash.ToLowerInvariant() -ne '813d7c3170dbcf4d0407310747997d87d79170f800b2a7f99a3b34897971b652') { throw 'Baseline installer checksum mismatch.' }
+    $oldInstall = Start-Process -FilePath $baseline -ArgumentList @('/S', "/D=$directory") -Wait -PassThru
+    if ($oldInstall.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $application)) { throw 'Baseline installation failed.' }
+    if ((Get-Item -LiteralPath $application).VersionInfo.ProductVersion -notlike '0.5.2*') { throw 'Baseline application version mismatch.' }
+    $dataRoot = Join-Path $env:APPDATA 'tweakerzzz'
+    $sentinels = @()
+    foreach ($folder in @('backups', 'recordings', 'display-colors')) {
+        $destination = Join-Path $dataRoot $folder
+        $null = New-Item -ItemType Directory -Path $destination -Force
+        $sentinel = Join-Path $destination 'update-qa-preserve.txt'
+        Set-Content -LiteralPath $sentinel -Value 'Preserve saved tester data'
+        $sentinels += $sentinel
+    }
+    $install = Start-Process -FilePath $installer -ArgumentList @('/S', '--updated', "/D=$directory") -Wait -PassThru
     if ($install.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $application)) { throw 'The installer failed to install the application.' }
+    if ((Get-Item -LiteralPath $application).VersionInfo.ProductVersion -notlike "$version*") { throw 'The upgrade did not replace the application version.' }
+    foreach ($sentinel in $sentinels) {
+        if ((Get-Content -LiteralPath $sentinel -Raw).Trim() -ne 'Preserve saved tester data') { throw 'The upgrade changed saved data.' }
+    }
+    Write-Output 'PASS: verified 0.5.2 installation upgrades to the new version and preserves backup/recording/color data.'
     foreach ($resource in @('resources\app.asar', 'resources\windows\tweaks.json', 'resources\windows\tweaks.ps1', 'resources\windows\display.ps1')) {
         if (-not (Test-Path -LiteralPath (Join-Path $directory $resource))) { throw "Missing installed resource: $resource" }
     }

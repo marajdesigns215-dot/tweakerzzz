@@ -72,6 +72,7 @@ function createColorManager({ directory, executable, spawnProcess = spawn, onCha
   }
   return {
     isActive: () => current.active,
+    hasRecoveryPending: () => current.recoveryPending,
     async status() { await ensure(); return { ...current, config }; },
     async save(input) {
       const approved = validateColorConfig(input);

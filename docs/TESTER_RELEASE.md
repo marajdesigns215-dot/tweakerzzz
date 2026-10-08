@@ -1,4 +1,6 @@
-Download **Tweakerzzz-Setup-0.5.2-x64.exe** below. Quit the old app (including its tray icon), then run the installer. No Node/npm or PowerShell launch commands are needed.
+Download **Tweakerzzz-Setup-0.6.0-x64.exe** below. Quit the old app (including its tray icon), then run the installer. No Node/npm or PowerShell launch commands are needed.
+
+**New in v0.6.0 — optional in-app updates:** Open **Updates → Check for updates** to read release notes, download with progress/cancellation, and choose **Review installation → Install & restart**. Checks and downloads are manual, and a downloaded update never installs just because you close the app. Installation is blocked while an FPS recording, Windows change, resolution test, or color observer needs to finish. Saved profiles, backups, and recordings are retained. Downloads use release checksums; builds remain unsigned. Users on 0.5.2 or older need this installer once to enable future in-app updates.
 
 **QA fixes in v0.5.2:** Resolution tests now send the mode shown in the controls and use only reported resolution/refresh-rate pairs. Empty or failed mode queries no longer offer sample modes. Damaged FPS history files no longer blank the app or block valid recordings; files are preserved with a recovery notice. Comparisons reject missing hardware/benchmark information on one side, and older runs disclose unverified hardware. Late failures from obsolete hardware scans no longer replace the current scan notification. Added an installed Windows app walkthrough alongside the existing native and installer tests.
 
