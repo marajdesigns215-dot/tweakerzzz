@@ -1,4 +1,6 @@
-Download **Tweakerzzz-Setup-0.5.0-x64.exe** below. Quit the old app (including its tray icon), then run the installer. No Node/npm or PowerShell launch commands are needed.
+Download **Tweakerzzz-Setup-0.5.1-x64.exe** below. Quit the old app (including its tray icon), then run the installer. No Node/npm or PowerShell launch commands are needed.
+
+**Hardware guidance fix:** No owner/tester reference build is preloaded. Scans now update advice across tabs. NVIDIA, AMD, Intel, and unknown graphics use applicable encoder/display guides; memory guidance uses the reported capacity and speed. Failed rescans clear old guidance, imports stay labeled, and late scan responses cannot overwrite newer reports. The catalog includes 89 entries, filtered by hardware, with 22 reversible automatic preferences.
 
 **Standalone FPS recorder:** OBS is optional in every mode. FPS, 1% lows, frame times, CPU/RAM and supported GPU measurements work without connecting OBS. Select the game executable and scene, then Start background recording. Repeated-run comparisons without OBS are labeled FPS only; connect OBS only if you want its own lag/drop measurements and output-quality checks.
 

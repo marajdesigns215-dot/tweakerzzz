@@ -2,22 +2,22 @@
 
 A Windows gaming and content-creation workspace built with React, TypeScript, Vite, and Electron. Start with a hardware scan, review a plan, apply supported settings with a local backup, and compare your actual results.
 
-**Status: v0.5.0 development build.** Browser workflows and Windows inventory, tweak detection, recommendations, OBS protocol, repeated-run analysis, and registry apply/restore are covered by automated checks. Tagged installers must also pass packaged-file, install, launch, shortcut, and uninstall checks before release. Monitor switching, vendor-specific devices, and actual performance results still need hardware testing. NVIDIA digital vibrance profiles use a native foreground observer with exact-level recovery. Physical NVIDIA color writes still need tester hardware validation; brightness/contrast/warmth and vendor-specific device tuning remain previews or guides.
+**Status: v0.5.1 development build.** Browser workflows and Windows inventory, tweak detection, recommendations, OBS protocol, repeated-run analysis, and registry apply/restore are covered by automated checks. Tagged installers must also pass packaged-file, install, launch, shortcut, and uninstall checks before release. Monitor switching, vendor-specific devices, and actual performance results still need hardware testing. NVIDIA digital vibrance profiles use a native foreground observer with exact-level recovery. Physical NVIDIA color writes still need tester hardware validation; brightness/contrast/warmth and vendor-specific device tuning remain previews or guides.
 
-The included reference configuration comes from the supplied screenshot: **Ryzen 9 5900X, GeForce RTX 4060 8 GB, 32 GB RAM at 3200 MHz, and Windows 11 Pro**. Reference values are labeled and are replaced by a scan or imported report; they are not measurements of the computer running the browser.
+No reference PC is preloaded. Every hardware-dependent screen uses the latest native scan or an explicitly labeled imported report. NVIDIA, AMD, Intel, and unrecognized hardware get appropriate vendor guidance or an unknown result. Encoder hints are conservative model-family rules, not a probe of installed encoder support; check availability in your capture software. Missing memory speed and VRAM stay unknown. The Windows desktop build targets Windows x64; support for every device, driver, sensor, or control API is not implied.
 
 ## Implemented capabilities
 
 | Feature | Behavior |
 | --- | --- |
-| Optimization library | **87 settings: 22 automatic and 65 guided**, across Gaming, Windows, Streaming, Network, Peripherals, and Privacy. Search, filter, review tradeoffs, and build a plan. |
+| Optimization library | **89 catalog entries: 22 automatic and 67 guided; hardware-specific entries appear only when applicable**, across Gaming, Windows, Streaming, Network, Peripherals, and Privacy. Search, filter, review tradeoffs, and build a plan. |
 | Windows hardware scan | Reads CPU/RAM directly through Node APIs, then supplements inventory through fixed, read-only CIM/PnP commands with a WMI fallback. PC and peripheral scans are separate; a failed optional provider produces a warning and unknown values instead of failing the complete report. NVIDIA VRAM uses `nvidia-smi` when available; otherwise it remains unknown. Scan reports can be exported and imported. |
 | Current Windows settings | Checks all 22 supported automatic tweaks at startup and after apply/restore. **Already configured** means stored values match; **Different settings**, **Not configured**, and **Unable to read** remain distinct. Missing preferences do not imply a particular Windows default. Guided settings remain manual. |
 | Automatic changes | Applies an allowlist of per-user registry preferences and, if selected and available, the existing High performance power scheme. Original state is recorded before writing. Settings already matching the requested values are skipped; an entirely redundant plan creates no backup. |
 | Program colors | NVIDIA digital vibrance per foreground executable on one selected SDR display. Desktop fallback, tray observer, exact original-level recovery. No game injection or automatic login startup. |
 | Drivers & devices | Fresh motherboard/system/BIOS/component/peripheral scan, installed driver versions, and matched official support directories. Unknown models stay unresolved; no automatic installations or BIOS flashes. |
 | Display modes | Lists driver-advertised modes for the **primary display**. Tests resolution and refresh changes temporarily, with a **15-second confirmation deadline** and rollback when unconfirmed. Custom timings and NVIDIA scaling controls are not implemented. |
-| Display studio | Provides visual color previews and locally saved reference profiles. Actual Digital Vibrance and GPU scaling use the NVIDIA Control Panel guides; there is no integrated NVIDIA color-control API. |
+| Display studio | Per-program NVIDIA digital vibrance uses a native foreground observer on a supported NVIDIA output. Manual color, scaling, adaptive-sync, and range guides follow the detected NVIDIA/AMD/Intel vendor. Other color sliders remain previews. |
 | Peripherals | Reads product descriptions, USB IDs, and up to four parent levels, groups matching interfaces, and includes cameras. Known G102/G203 USB IDs have a local fallback; shared IDs stay labeled as a family. Device cards choose G102/G203, EP-84, Corsair VOID, or category guides from the reported evidence. DPI, polling rates, actuation, camera modes, and firmware remain manual and are not measured by the scanner. |
 | Streaming lab | Provides editable starting recommendations and a downloadable OBS settings guide. The guide is entered manually in OBS; it is not an importable OBS profile. |
 | Game recommendations | Exact executable profiles for Fortnite, VALORANT, CS2, Apex, Call of Duty/Warzone, Marvel Rivals, and Cyberpunk, with a generic fallback. Uses live CPU/GPU/RAM/driver/settings scans and Gaming/Streaming/Recording workload. Suggestions explain applicability and tradeoffs; configured automatic tweaks are skipped. |
@@ -32,7 +32,7 @@ Settings have different purposes: some reduce overhead, some improve frame pacin
 
 ## Installer for Windows testers
 
-Download [Tweakerzzz Setup 0.5.0 for Windows x64](https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.5.0/Tweakerzzz-Setup-0.5.0-x64.exe) from the [tester release](https://github.com/marajdesigns215-dot/tweakerzzz/releases/tag/v0.5.0). Close any older Tweakerzzz window and double-click the installer. It installs for the current Windows account and creates desktop and Start menu shortcuts. Testers do **not** need Node.js, npm, a source checkout, or PowerShell launch commands.
+Download [Tweakerzzz Setup 0.5.1 for Windows x64](https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.5.1/Tweakerzzz-Setup-0.5.1-x64.exe) from the [tester release](https://github.com/marajdesigns215-dot/tweakerzzz/releases/tag/v0.5.1). Close any older Tweakerzzz window and double-click the installer. It installs for the current Windows account and creates desktop and Start menu shortcuts. Testers do **not** need Node.js, npm, a source checkout, or PowerShell launch commands.
 
 This is an **unsigned tester build**, so Windows may display an unknown-publisher or SmartScreen notice. Organization-managed policies may require a signed distribution. Uninstall in Windows Settings → Apps; profiles and restore backups are preserved. Read [tester release notes](docs/TESTER_RELEASE.md) for scanning and reporting instructions.
 
@@ -119,7 +119,7 @@ The collector is [Intel PresentMon 2.3.0](https://github.com/GameTechDev/Present
 
 ## Game recommendations and repeated experiments
 
-In **FPS recorder**, select a known game or its actual executable, choose Gaming/Streaming/Recording, and select **Scan for recommendations**. Only live detected specs are used as the current PC; imported reports and the reference Ryzen/RTX configuration do not stand in for a scan. Each card explains why it applies and its tradeoff. **Review this tweak** opens the existing plan/backup flow; vendor and in-game settings remain guided. The app never automatically applies or rolls back recommendations. Generic programs receive general guidance rather than a guessed game profile.
+In **FPS recorder**, select a known game or its actual executable, choose Gaming/Streaming/Recording, and select **Scan for recommendations**. Only live detected specs are used as the current PC; imported reports do not stand in for a live scan. Each card explains why it applies and its tradeoff. **Review this tweak** opens the existing plan/backup flow; vendor and in-game settings remain guided. The app never automatically applies or rolls back recommendations. Generic programs receive general guidance rather than a guessed game profile.
 
 Turn on **Use controlled benchmark conditions** to name an experiment and record the game resolution, graphics/upscaling/frame-generation settings, FPS cap, and game build. Confirm you warmed up the scene and kept other settings/workloads consistent. **Use for After run** copies conditions but requires confirming them again. Record at least 60 seconds of usable gameplay per run, with three separate runs before and three after the same change. A baseline is never reused in more than one pair.
 
@@ -149,7 +149,7 @@ Start the intended stream/recording before the FPS run. Rendering lag, encoding 
 
 ## Validate performance and native behavior
 
-Use the same game scene, graphics settings, and capture workload before and after each small set of changes. Compare average FPS, 1% lows, frame-time consistency, temperatures, and OBS rendering/encoding lag. A Ryzen Balanced power setup may outperform or match High performance while using less power. An RTX 4060 benefits most from changes that address the actual GPU, VRAM, or capture bottleneck.
+Use the same game scene, graphics settings, and capture workload before and after each small set of changes. Compare average FPS, 1% lows, frame-time consistency, temperatures, and OBS rendering/encoding lag. A Ryzen Balanced power setup may outperform or match High performance while using less power. Choose changes that address the measured CPU, GPU, memory, or capture bottleneck on that machine.
 
 `npm test` checks hardware-report validation, catalog/native allowlist agreement, request validation, IPC origin isolation, and display-confirmation/rollback orchestration with mocked native processes. `npm run build` checks TypeScript and produces the renderer bundle. These checks do not demonstrate actual registry, driver, or hardware behavior.
 
@@ -170,7 +170,7 @@ The browser workflow can also be exercised with `python tests/ui_smoke.py` when 
 
 ## Updating older versions and scan errors
 
-Close every Tweakerzzz window, download the latest GitHub ZIP, and extract it to a new folder. Open a terminal there and run `npm.cmd ci`, `npm.cmd run build`, then `npm.cmd run prepare:color` and `npm.cmd run desktop`. Confirm the header says **v0.5.0**. This release uses larger text, brighter descriptions, and larger buttons/switches across all screens.
+Close every Tweakerzzz window, download the latest GitHub ZIP, and extract it to a new folder. Open a terminal there and run `npm.cmd ci`, `npm.cmd run build`, then `npm.cmd run prepare:color` and `npm.cmd run desktop`. Confirm the header says **v0.5.1**. This release uses larger text, brighter descriptions, and larger buttons/switches across all screens.
 
 The original error “scan.ps1 is not digitally signed” came from Windows marking a downloaded ZIP's scripts as Internet files. v0.2.0 scans and read-only tweak checks do not depend on that script. No PowerShell execution policy needs to change for these reads. **Apply/restore and display changes still use the native script trust policy.** If you trust the ZIP downloaded from your repository, use its **Properties → Unblock → Apply**, then extract it again to a new folder; do not disable organizational policy. An organization that requires signed software may need an approved signed build.
 
@@ -195,7 +195,7 @@ Portable tests cover parent descriptors, generic receivers, unknown OEM IDs, hea
 Run `python tests/ui_recommendations.py` with the development server for mocked-native recommendation/telemetry/OBS setup flows and responsive bubblegum UI checks. Actual GPU/CPU sensor hardware and real OBS installations still need tester validation; the WebSocket protocol test uses a local OBS-compatible fixture.
 
 
-## Per-program display colors (v0.5.0)
+## Per-program display colors (v0.5.1)
 
 Open **Display studio → Automatic program vibrance**. Select the NVIDIA-connected monitor, set desktop vibrance, and add the actual game executable through **Find running programs** or its exact `.exe` name. Choose each game's level, confirm Windows HDR is off and other color observers are stopped, then **Save & start observer**. Profile editing is locked while running; stopping restores the exact level read before the session. Closing the window keeps the observer in the tray. Quitting restores colors. The observer does not start automatically at Windows login.
 
@@ -214,3 +214,9 @@ The app does not check online version inventories or call a driver out of date. 
 **Save settings snapshot** now reads the allowlisted registry values and power scheme through a fixed read-only query, then atomically writes a local backup in the same format as previous releases. It does not execute downloaded `tweaks.ps1`, unblock files, or change PowerShell execution policy. Windows validation adds an Internet-zone marker to that script and checks a full 22-setting snapshot without registry/power changes. Existing apply/restore operations retain their script trust requirements; use the installer asset rather than the source ZIP for testers.
 
 The new color helper is compiled on Windows with `npm run prepare:color` using the built-in .NET Framework compiler. The Windows workflow checks compilation, profile validation/matching, live foreground querying, helper IPC, unsupported-hardware behavior, and packaged helper integrity. It cannot validate actual vibrance changes without a supported physical NVIDIA display; those remain a hardware testing requirement.
+
+## Hardware guidance consistency (v0.5.1)
+
+PC scanner, FPS recorder’s recommendation scan, and Drivers & devices now refresh one shared hardware report. Overview, the optimization catalog and detail dialogs, streaming settings and exports, display guides, and peripheral cards use that report. A failed rescan clears old hardware guidance, and a late response cannot replace a newer scan or import. Fresh sessions start unscanned. Imported reports are labeled and cannot establish live benchmark conditions.
+
+Regression checks cover NVIDIA, AMD, Intel, integrated/ambiguous adapters, different RAM capacities/speeds, all scan entry points, failures, and overlapping requests. Run `python3 tests/ui_hardware_guidance.py` with the Vite server running for the renderer workflow checks. These tests use inventory fixtures; physical compatibility remains dependent on the installed Windows drivers and supported APIs.

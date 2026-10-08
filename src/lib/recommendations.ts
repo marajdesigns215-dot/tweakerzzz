@@ -1,12 +1,13 @@
 import type { SystemScan, TweakStatusReport, CaptureOptions, TelemetrySummary } from '../types.ts';
 import { matchGame } from '../data/game-profiles.ts';
+import { gpuCapabilities } from './hardware-guidance.ts';
 
 export interface Recommendation { id: string; title: string; reason: string; tradeoff: string; priority: 'Start here' | 'Worth testing' | 'Measured signal'; mode: 'automatic' | 'guided'; configured: boolean; stateKnown: boolean }
 export function recommend({ processName, context, hardware, settings, telemetry, usesWindowsCapture = true }: { processName: string; context: CaptureOptions['context']; hardware: SystemScan | null; settings: TweakStatusReport | null; telemetry?: TelemetrySummary; usesWindowsCapture?: boolean }) {
   const game = matchGame(processName), items: Recommendation[] = [];
   const states = new Map(settings?.tweaks.map(t => [t.id, t]) ?? []);
-  const gpu = hardware?.gpu.name ?? '', nvidia = /NVIDIA|GeForce/i.test(gpu), rtx = /RTX\s*\d/i.test(gpu);
-  const desktopRtx = /RTX\s*(?:20|30|40|50)\d\d/i.test(gpu);
+  const capabilities = gpuCapabilities(hardware);
+  const gpu = capabilities.name, nvidia = capabilities.nvenc, rtx = capabilities.rtx;
   function add(id: string, title: string, reason: string, tradeoff: string, priority: Recommendation['priority'] = 'Worth testing', mode: Recommendation['mode'] = 'guided') {
     if (items.some(item => item.id === id)) return;
     const state = states.get(id);
@@ -28,10 +29,10 @@ export function recommend({ processName, context, hardware, settings, telemetry,
   if (hardware && /Ryzen.*5[0-9]{3}/i.test(hardware.cpu.name)) add('ryzen-balanced', 'Keep Balanced as your power-plan baseline', `Your ${hardware.cpu.name} does not automatically need High performance. Compare sustained clocks and frame times first.`, 'High performance may increase heat and idle power without improving gameplay. Restore center can restore a saved plan.');
   if (hardware?.cpu.cores != null && hardware.cpu.cores <= 6 && context !== 'Gaming') add('encoder-choice', 'Review CPU encoder contention', `Your scan reports ${hardware.cpu.cores} CPU cores. A heavy CPU encoder may compete with the game.`, 'Check OBS Stats and compare a supported GPU encoder. Core count alone does not predict performance.');
   if (context !== 'Gaming') {
-    add('obs-headroom', 'Check OBS rendering and encoding lag', 'During the same scene, open OBS → View → Stats and distinguish rendering lag from encoding lag and network drops.', 'This app does not read OBS statistics. Reset OBS Stats before each test and compare the same workload.', 'Start here');
+    add('obs-headroom', 'Check capture rendering and encoding lag', 'During the same scene, inspect your capture app’s statistics and distinguish rendering lag from encoding lag and network drops.', 'Optional OBS statistics can be connected in the FPS recorder. Other capture apps need their own statistics; game FPS alone does not measure output quality.', 'Start here');
     add('obs-game-capture', 'Try a direct OBS Game Capture source', 'A direct game source can avoid capturing the entire desktop when the game supports it.', 'Protected games may require a different supported capture method. Keep capture method unchanged within an experiment.');
-    if (desktopRtx) add('obs-nvenc-h264', 'Test the dedicated NVIDIA encoder', `Your ${gpu} has NVENC. Test it if CPU encoding competes with gameplay. H.264 is widely supported.`, 'Choose a compatible output format and bitrate; hardware encoding still uses GPU resources.');
-    if (/RTX\s*(?:40|50)\d\d/i.test(gpu) && context === 'Recording') add('obs-nvenc-av1', 'Consider NVENC AV1 recording', `Your ${gpu} supports AV1 encoding for workflows that accept it.`, 'Check editor/player compatibility. Better compression is not a guaranteed FPS improvement.');
+    if (capabilities.h264) add(capabilities.nvenc ? 'obs-nvenc-h264' : 'obs-hardware-h264', `Test ${capabilities.encoder} H.264`, `For ${gpu}, check that your capture software lists ${capabilities.encoder} H.264. Test it if CPU encoding competes with gameplay.`, 'Model-family guidance does not verify the installed driver’s available encoders. Choose a compatible output format and test quality and lag.');
+    if (capabilities.av1 && context === 'Recording') add(capabilities.nvenc ? 'obs-nvenc-av1' : 'obs-hardware-av1', `Consider ${capabilities.encoder} AV1 recording`, `The ${gpu} model family supports AV1 encoding; confirm that your app and driver expose it.`, 'Check editor/player compatibility. Better compression is not a guaranteed FPS improvement.');
     if (context === 'Streaming') add('upload-budget', 'Keep stream upload headroom', 'Network congestion can drop stream frames even when the game runs well.', 'OBS network drops are not game FPS or encoding lag. Confirm the actual upload rate first.');
   }
   if (telemetry?.enabled && telemetry.cpu.samples >= 3 && telemetry.cpu.averagePercent != null && telemetry.cpu.averagePercent >= 85) add('startup-apps', 'Inspect high overall CPU use', `The selected run averaged ${telemetry.cpu.averagePercent.toFixed(0)}% overall CPU use. Identify competing processes before testing a change.`, 'Overall CPU use does not prove a game is CPU limited and can hide a single saturated core.', 'Measured signal');

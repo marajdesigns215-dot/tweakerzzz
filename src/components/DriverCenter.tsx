@@ -3,11 +3,11 @@ import { ArrowUpRight, Cpu, Download, Fan, LoaderCircle, ScanLine } from 'lucide
 import type { DriverReport } from '../types';
 import { Diagnostics } from './SystemStatus';
 
-export function DriverCenter() {
+export function DriverCenter({ scanReport }: { scanReport: () => Promise<DriverReport> }) {
   const [report, setReport] = useState<DriverReport | null>(null);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [filter, setFilter] = useState('All devices'); const [query, setQuery] = useState('');
-  async function scan() { setBusy(true); setError(''); try { setReport(await window.tweaker!.scanDrivers()); } catch (e) { setError(String(e)); } finally { setBusy(false); } }
+  async function scan() { setBusy(true); setError(''); setReport(null); try { setReport(await scanReport()); } catch (e) { setError(String(e)); } finally { setBusy(false); } }
   const categories = ['All devices', ...new Set(report?.recommendations.map(r => r.category) || [])];
   const cards = report?.recommendations.filter(r => (filter === 'All devices' || r.category === filter) && `${r.title} ${r.device} ${r.sourceName}`.toLowerCase().includes(query.toLowerCase())) || [];
   return <div className="driver-center">

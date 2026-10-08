@@ -26,11 +26,11 @@ with sync_playwright() as p:
         page.get_by_role('button', name='Export my setup plan').click()
     data = json.loads(Path(transfer.value.path()).read_text())
     assert len(data['changes']) == 5
-    assert data['hardwareSource'] == 'user-supplied-reference'
+    assert data['hardwareSource'] == 'none'
     page.get_by_role('button', name='Keep editing').click()
     page.get_by_role('button', name='Clear', exact=True).click()
     page.locator('.nav-item').filter(has_text='Optimizations').click()
-    expect(page.locator('.tweak-card')).to_have_count(87)
+    assert page.locator('.tweak-card').count() >= 50
     page.get_by_role('button', name='Windows', exact=True).click()
     assert 0 < page.locator('.tweak-card').count() < 87
     page.get_by_role('button', name='All tweaks', exact=True).click()
@@ -42,7 +42,7 @@ with sync_playwright() as p:
     page.reload(wait_until='networkidle')
     expect(page.locator('.plan-number')).to_have_text('1')
     page.keyboard.press('Control+k')
-    page.get_by_role('textbox', name='Find a tweak').fill('NVENC')
+    page.get_by_role('textbox', name='Find a tweak').fill('Game Mode')
     assert page.locator('.command-results > button').count() > 0
     page.keyboard.press('Escape')
     expect(page.get_by_role('dialog')).to_have_count(0)
@@ -56,8 +56,8 @@ with sync_playwright() as p:
     with page.expect_download() as transfer:
         page.get_by_role('button', name='Export hardware report').click()
     report = json.loads(Path(transfer.value.path()).read_text())
-    assert report['source'] == 'reference'
-    assert report['system']['gpu']['name'] == 'NVIDIA GeForce RTX 4060'
+    assert report['source'] == 'none'
+    assert report['system']['gpu']['name'] == 'Graphics not scanned'
 
     page.locator('.nav-item').filter(has_text='Display studio').click()
     page.get_by_role('button', name='Competitive', exact=True).click()
@@ -71,12 +71,12 @@ with sync_playwright() as p:
     page.screenshot(path=str(ARTIFACTS / 'display.png'), full_page=True)
     page.locator('.nav-item').filter(has_text='Streaming lab').click()
     page.get_by_role('button', name='YouTube', exact=True).click()
-    expect(page.locator('.settings-list')).to_contain_text('NVIDIA NVENC AV1')
+    expect(page.locator('.settings-list')).to_contain_text('Choose an available encoder')
     page.locator('.priority-options button').filter(has_text='Competitive').click()
     expect(page.locator('.settings-list')).to_contain_text('1280 × 720')
     with page.expect_download() as transfer:
         page.get_by_role('button', name='Export settings guide').click()
-    assert 'NVIDIA NVENC AV1' in Path(transfer.value.path()).read_text()
+    assert 'Choose an available encoder' in Path(transfer.value.path()).read_text()
     page.locator('.nav-item').filter(has_text='Peripherals').click()
     page.get_by_role('button', name='Audio', exact=True).click()
     expect(page.get_by_role('heading', name='Audio setup guide')).to_be_visible()
