@@ -1,5 +1,6 @@
 #requires -Version 5.1
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 if (-not ($env:GITHUB_ACTIONS -eq 'true' -and $env:RUNNER_OS -eq 'Windows')) {
     throw 'Run this install/launch/uninstall test only on an isolated Windows CI runner.'
 }
@@ -11,7 +12,7 @@ $process = $null
 try {
     # Verify a real upgrade from the last released build, with pinned artifact bytes.
     $baseline = Join-Path $env:RUNNER_TEMP 'Tweakerzzz-Setup-0.5.2-x64.exe'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.5.2/Tweakerzzz-Setup-0.5.2-x64.exe' -OutFile $baseline
+    Invoke-WebRequest -UseBasicParsing -TimeoutSec 180 -Uri 'https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.5.2/Tweakerzzz-Setup-0.5.2-x64.exe' -OutFile $baseline
     if ((Get-FileHash -LiteralPath $baseline -Algorithm SHA256).Hash.ToLowerInvariant() -ne '813d7c3170dbcf4d0407310747997d87d79170f800b2a7f99a3b34897971b652') { throw 'Baseline installer checksum mismatch.' }
     $oldInstall = Start-Process -FilePath $baseline -ArgumentList @('/S', "/D=$directory") -Wait -PassThru
     if ($oldInstall.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $application)) { throw 'Baseline installation failed.' }
