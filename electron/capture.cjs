@@ -27,14 +27,14 @@ function validateSessionId(id) {
   if (typeof id !== 'string' || !/^[a-f0-9]{32}$/.test(id)) throw new Error('Invalid recording ID.');
   return id;
 }
-function runFile(file, args) {
-  return new Promise((resolve, reject) => execFile(file, args, { windowsHide: true, shell: false, timeout: 7000, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => error ? reject(new Error((stderr || error.message).slice(0, 2000))) : resolve(stdout)));
+function runFile(file, args, timeout = 7000) {
+  return new Promise((resolve, reject) => execFile(file, args, { windowsHide: true, shell: false, timeout, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => error ? reject(new Error(error.killed ? `The Windows query exceeded ${timeout / 1000} seconds. Please retry after Windows finishes starting.` : (stderr || error.message).slice(0, 2000))) : resolve(stdout)));
 }
 async function listPrograms() {
   const executable = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
   // Fixed read-only command: no executable names or user input are evaluated.
   const command = "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); $names = @(Get-Process | Select-Object -ExpandProperty ProcessName -Unique | Sort-Object); [Console]::Out.WriteLine((ConvertTo-Json -InputObject $names -Compress))";
-  const raw = await runFile(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command]);
+  const raw = await runFile(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command], 20000);
   const names = JSON.parse(raw.replace(/^\uFEFF/, '').trim());
   if (!Array.isArray(names)) throw new Error('Windows returned an unreadable program list. Enter the executable name manually.');
   return names.filter(name => typeof name === 'string').slice(0, 1000).map(name => name + '.exe');
