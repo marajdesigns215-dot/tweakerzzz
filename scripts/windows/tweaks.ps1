@@ -12,7 +12,10 @@ function Preference($path, $name, $kind, $value) {
 }
 
 $manifest = @{}
-foreach ($entry in @(Get-Content -LiteralPath (Join-Path $PSScriptRoot 'tweaks.json') -Raw | ConvertFrom-Json)) {
+# Windows PowerShell 5.1 emits a top-level JSON array as one pipeline object.
+# Assign it first so foreach enumerates the entries instead of nesting it in @().
+$entries = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'tweaks.json') -Raw | ConvertFrom-Json
+foreach ($entry in $entries) {
     $manifest[$entry.id] = @($entry.registry)
 }
 $allowedValues = @{}
