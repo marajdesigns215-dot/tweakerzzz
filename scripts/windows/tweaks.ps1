@@ -81,7 +81,9 @@ function Save-Backup($backup, $file) {
     $encoding = New-Object System.Text.UTF8Encoding($false)
     try {
         [IO.File]::WriteAllText($temporary, ($backup | ConvertTo-Json -Depth 12), $encoding)
-        if ([IO.File]::Exists($file)) { [IO.File]::Replace($temporary, $file, $null) }
+        # Windows PowerShell 5.1 otherwise binds $null to an empty string for
+        # this string parameter, which File.Replace rejects as a backup path.
+        if ([IO.File]::Exists($file)) { [IO.File]::Replace($temporary, $file, [NullString]::Value) }
         else { [IO.File]::Move($temporary, $file) }
     } finally {
         if ([IO.File]::Exists($temporary)) { [IO.File]::Delete($temporary) }
