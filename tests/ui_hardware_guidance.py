@@ -3,6 +3,7 @@ Native responses are fixtures; this does not verify a physical GPU or Windows dr
 """
 import json
 from pathlib import Path
+import os
 from playwright.sync_api import sync_playwright, expect
 
 ids = [t['id'] for t in json.loads(Path('scripts/windows/tweaks.json').read_text())]
@@ -25,7 +26,7 @@ with sync_playwright() as p:
     browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox'])
     page = browser.new_page(viewport={'width':1440, 'height':1100})
     errors=[]; page.on('pageerror', lambda e: errors.append(str(e)))
-    page.add_init_script(fixture); page.goto('http://127.0.0.1:5173', wait_until='networkidle')
+    page.add_init_script(fixture); page.goto(os.environ.get('TWEAKER_URL','http://127.0.0.1:5173'), wait_until='networkidle')
     def nav(name): page.locator('.nav-item').filter(has_text=name).click()
     def set_hw(scan): page.evaluate('(hw)=>window.hw=hw', scan)
     def scan_pc(scan):

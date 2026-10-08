@@ -1,4 +1,6 @@
-Download **Tweakerzzz-Setup-0.5.1-x64.exe** below. Quit the old app (including its tray icon), then run the installer. No Node/npm or PowerShell launch commands are needed.
+Download **Tweakerzzz-Setup-0.5.2-x64.exe** below. Quit the old app (including its tray icon), then run the installer. No Node/npm or PowerShell launch commands are needed.
+
+**QA fixes in v0.5.2:** Resolution tests now send the mode shown in the controls and use only reported resolution/refresh-rate pairs. Empty or failed mode queries no longer offer sample modes. Damaged FPS history files no longer blank the app or block valid recordings; files are preserved with a recovery notice. Comparisons reject missing hardware/benchmark information on one side, and older runs disclose unverified hardware. Late failures from obsolete hardware scans no longer replace the current scan notification. Added an installed Windows app walkthrough alongside the existing native and installer tests.
 
 **Hardware guidance fix:** No owner/tester reference build is preloaded. Scans now update advice across tabs. NVIDIA, AMD, Intel, and unknown graphics use applicable encoder/display guides; memory guidance uses the reported capacity and speed. Failed rescans clear old guidance, imports stay labeled, and late scan responses cannot overwrite newer reports. The catalog includes 89 entries, filtered by hardware, with 22 reversible automatic preferences.
 

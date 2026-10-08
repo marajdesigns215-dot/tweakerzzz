@@ -2,7 +2,7 @@
 
 A Windows gaming and content-creation workspace built with React, TypeScript, Vite, and Electron. Start with a hardware scan, review a plan, apply supported settings with a local backup, and compare your actual results.
 
-**Status: v0.5.1 development build.** Browser workflows and Windows inventory, tweak detection, recommendations, OBS protocol, repeated-run analysis, and registry apply/restore are covered by automated checks. Tagged installers must also pass packaged-file, install, launch, shortcut, and uninstall checks before release. Monitor switching, vendor-specific devices, and actual performance results still need hardware testing. NVIDIA digital vibrance profiles use a native foreground observer with exact-level recovery. Physical NVIDIA color writes still need tester hardware validation; brightness/contrast/warmth and vendor-specific device tuning remain previews or guides.
+**Status: v0.5.2 development build.** Browser workflows and Windows inventory, tweak detection, recommendations, OBS protocol, repeated-run analysis, and registry apply/restore are covered by automated checks. Tagged installers must also pass packaged-file, install, launch, shortcut, and uninstall checks before release. Monitor switching, vendor-specific devices, and actual performance results still need hardware testing. NVIDIA digital vibrance profiles use a native foreground observer with exact-level recovery. Physical NVIDIA color writes still need tester hardware validation; brightness/contrast/warmth and vendor-specific device tuning remain previews or guides.
 
 No reference PC is preloaded. Every hardware-dependent screen uses the latest native scan or an explicitly labeled imported report. NVIDIA, AMD, Intel, and unrecognized hardware get appropriate vendor guidance or an unknown result. Encoder hints are conservative model-family rules, not a probe of installed encoder support; check availability in your capture software. Missing memory speed and VRAM stay unknown. The Windows desktop build targets Windows x64; support for every device, driver, sensor, or control API is not implied.
 
@@ -32,7 +32,7 @@ Settings have different purposes: some reduce overhead, some improve frame pacin
 
 ## Installer for Windows testers
 
-Download [Tweakerzzz Setup 0.5.1 for Windows x64](https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.5.1/Tweakerzzz-Setup-0.5.1-x64.exe) from the [tester release](https://github.com/marajdesigns215-dot/tweakerzzz/releases/tag/v0.5.1). Close any older Tweakerzzz window and double-click the installer. It installs for the current Windows account and creates desktop and Start menu shortcuts. Testers do **not** need Node.js, npm, a source checkout, or PowerShell launch commands.
+Download [Tweakerzzz Setup 0.5.2 for Windows x64](https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.5.2/Tweakerzzz-Setup-0.5.2-x64.exe) from the [tester release](https://github.com/marajdesigns215-dot/tweakerzzz/releases/tag/v0.5.2). Close any older Tweakerzzz window and double-click the installer. It installs for the current Windows account and creates desktop and Start menu shortcuts. Testers do **not** need Node.js, npm, a source checkout, or PowerShell launch commands.
 
 This is an **unsigned tester build**, so Windows may display an unknown-publisher or SmartScreen notice. Organization-managed policies may require a signed distribution. Uninstall in Windows Settings → Apps; profiles and restore backups are preserved. Read [tester release notes](docs/TESTER_RELEASE.md) for scanning and reporting instructions.
 
@@ -170,7 +170,7 @@ The browser workflow can also be exercised with `python tests/ui_smoke.py` when 
 
 ## Updating older versions and scan errors
 
-Close every Tweakerzzz window, download the latest GitHub ZIP, and extract it to a new folder. Open a terminal there and run `npm.cmd ci`, `npm.cmd run build`, then `npm.cmd run prepare:color` and `npm.cmd run desktop`. Confirm the header says **v0.5.1**. This release uses larger text, brighter descriptions, and larger buttons/switches across all screens.
+Close every Tweakerzzz window, download the latest GitHub ZIP, and extract it to a new folder. Open a terminal there and run `npm.cmd ci`, `npm.cmd run build`, then `npm.cmd run prepare:color` and `npm.cmd run desktop`. Confirm the header says **v0.5.2**. This release uses larger text, brighter descriptions, and larger buttons/switches across all screens.
 
 The original error “scan.ps1 is not digitally signed” came from Windows marking a downloaded ZIP's scripts as Internet files. v0.2.0 scans and read-only tweak checks do not depend on that script. No PowerShell execution policy needs to change for these reads. **Apply/restore and display changes still use the native script trust policy.** If you trust the ZIP downloaded from your repository, use its **Properties → Unblock → Apply**, then extract it again to a new folder; do not disable organizational policy. An organization that requires signed software may need an approved signed build.
 
@@ -220,3 +220,11 @@ The new color helper is compiled on Windows with `npm run prepare:color` using t
 PC scanner, FPS recorder’s recommendation scan, and Drivers & devices now refresh one shared hardware report. Overview, the optimization catalog and detail dialogs, streaming settings and exports, display guides, and peripheral cards use that report. A failed rescan clears old hardware guidance, and a late response cannot replace a newer scan or import. Fresh sessions start unscanned. Imported reports are labeled and cannot establish live benchmark conditions.
 
 Regression checks cover NVIDIA, AMD, Intel, integrated/ambiguous adapters, different RAM capacities/speeds, all scan entry points, failures, and overlapping requests. Run `python3 tests/ui_hardware_guidance.py` with the Vite server running for the renderer workflow checks. These tests use inventory fixtures; physical compatibility remains dependent on the installed Windows drivers and supported APIs.
+
+## Error recovery and desktop walkthrough (v0.5.2)
+
+The resolution controls use only driver-reported mode pairs in the desktop app. Missing/failed mode queries disable testing and offer a refresh; preview samples remain limited to browser planning mode. Changing resolution preserves the selected refresh rate only if that pair is supported. The aspect-ratio label is calculated from the selected dimensions. Display changes still require confirmation and retain native automatic rollback.
+
+Damaged FPS metadata is excluded from the renderer without deleting its JSON or CSV. Recording history identifies affected files and their folder while valid runs and new recordings remain usable. Restore a valid JSON copy or move the damaged file out of the recordings folder to clear its warning. Ordinary before/after comparisons reject pairs where only one run has hardware or controlled-benchmark information. Legacy pairs without hardware snapshots explicitly disclose that the hardware match is unverified.
+
+`tests/ui_error_recovery.py` exercises production-renderer failure paths and every tab at 390, 900, and 1440 pixels. `tests/windows.app.cjs`, invoked by the isolated installer test, drives the installed Electron app through its real preload/IPC bridge: tab navigation, inventory, process and peripheral lists, drivers, display-mode availability, streaming profiles, and a read-only settings snapshot. It captures renderer errors and retains a screenshot/report in the development artifact. It never applies registry, display-resolution, or color changes; physical display/GPU behavior still needs hardware testing. Remote debugging is enabled only for that CI test process, not installed shortcuts.

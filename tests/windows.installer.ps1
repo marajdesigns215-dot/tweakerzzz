@@ -17,7 +17,12 @@ try {
     $desktop = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Tweakerzzz.lnk'
     $startMenu = Join-Path ([Environment]::GetFolderPath('Programs')) 'Tweakerzzz.lnk'
     if (-not (Test-Path -LiteralPath $desktop) -or -not (Test-Path -LiteralPath $startMenu)) { throw 'The expected desktop and Start menu shortcuts were not created.' }
-    $process = Start-Process -FilePath $application -PassThru
+    $profileDirectory = Join-Path $env:RUNNER_TEMP ('TweakerzzzProfile-' + [Guid]::NewGuid().ToString('N'))
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+    $listener.Start()
+    $debugPort = $listener.LocalEndpoint.Port
+    $listener.Stop()
+    $process = Start-Process -FilePath $application -ArgumentList @("--remote-debugging-port=$debugPort", '--remote-debugging-address=127.0.0.1', "--user-data-dir=`"$profileDirectory`"") -PassThru
     $deadline = [DateTime]::UtcNow.AddSeconds(25)
     do {
         Start-Sleep -Milliseconds 500
@@ -26,6 +31,8 @@ try {
     } while ($process.MainWindowHandle -eq 0 -and [DateTime]::UtcNow -lt $deadline)
     if ($process.MainWindowHandle -eq 0) { throw 'The installed app did not create a desktop window.' }
     Write-Output 'PASS: installed executable launches a desktop window without Node.js/npm commands; packaged resources and shortcuts exist.'
+    node tests/windows.app.cjs $debugPort
+    if ($LASTEXITCODE -ne 0) { throw 'The installed Windows app walkthrough failed.' }
 } finally {
     if ($process -and -not $process.HasExited) {
         $null = $process.CloseMainWindow()

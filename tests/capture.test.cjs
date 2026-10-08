@@ -124,3 +124,38 @@ test('a malformed final CSV row still closes the collector and persists an unsuc
     assert.equal((await h.manager.list())[0].status, 'failed');
   } finally { await h.cleanup(); }
 });
+
+test('damaged recording files stay on disk while valid history and new recordings remain usable', async () => {
+  const h = await harness();
+  try {
+    await h.manager.start(options); h.children[0].stdout.write(header + row(10).repeat(100));
+    const good = await h.manager.stop();
+    const corrupt = [
+      ['a'.repeat(32), '{incomplete'],
+      ['b'.repeat(32), JSON.stringify({ ...good, id: 'b'.repeat(32), settings: null })],
+      ['c'.repeat(32), JSON.stringify({ ...good, id: 'c'.repeat(32), telemetrySummary: { enabled: true, obs: null } })],
+      ['d'.repeat(32), JSON.stringify({ ...good, id: 'd'.repeat(32), summary: { ...good.summary, averageFps: 'broken' } })],
+      ['e'.repeat(32), JSON.stringify({ ...good, id: 'e'.repeat(32), hardware: { gpu: null } })],
+    ];
+    for (const [id, content] of corrupt) await fs.writeFile(path.join(h.directory, id + '.json'), content);
+    assert.deepEqual((await h.manager.list()).map(r => r.id), [good.id]);
+    assert.equal(h.manager.status().historyWarnings.length, 5);
+    for (const [id, content] of corrupt) assert.equal(await fs.readFile(path.join(h.directory, id + '.json'), 'utf8'), content);
+    await h.manager.start(options); h.children.at(-1).stdout.write(header + row(12).repeat(100));
+    assert.equal((await h.manager.stop()).status, 'completed');
+    assert.equal((await h.manager.list()).length, 2);
+  } finally { await h.cleanup(); }
+});
+
+test('ordinary comparisons reject asymmetric snapshots and flag legacy hardware as unverified', async () => {
+  const { compareCaptures } = await import('../src/lib/capture-comparison.ts');
+  const b = { ...options, id: 'a', status: 'completed', startedAt: '2026-10-08T01:00:00Z', summary: { averageFps: 100, onePercentLow: 60, p95FrameMs: 20, sampledSeconds: 60 }, settings: { tweaks: [] } };
+  const a = { ...b, id: 'b', phase: 'after', startedAt: '2026-10-08T02:00:00Z' };
+  assert.equal(compareCaptures(b, a).hardwareUnverified, true);
+  assert.equal(compareCaptures({ ...b, hardwareKey: 'known' }, a), null);
+  assert.equal(compareCaptures(b, { ...a, hardwareKey: 'known' }), null);
+  const benchmark = { experiment: 'test', resolution: '1440p', graphics: 'low', gameBuild: '1', fpsCap: 0, verified: true };
+  assert.equal(compareCaptures({ ...b, benchmark }, a), null);
+  assert.equal(compareCaptures(b, { ...a, benchmark }), null);
+  assert.equal(compareCaptures({ ...b, hardwareKey: 'same', benchmark }, { ...a, hardwareKey: 'same', benchmark }).hardwareUnverified, false);
+});

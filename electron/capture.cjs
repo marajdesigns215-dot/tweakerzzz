@@ -7,6 +7,7 @@ const { spawn, execFile } = require('node:child_process');
 const { FrameMetrics } = require('./fps-metrics.cjs');
 const spec = require('./presentmon.json');
 const { createTelemetry } = require('./telemetry.cjs');
+const { validateRecord } = require('./capture-records.cjs');
 
 function validateCapture(input) {
   if (!input || typeof input !== 'object') throw new Error('Choose a game and recording settings.');
@@ -47,7 +48,7 @@ async function verifyCollector(executable) {
 }
 
 function createCaptureManager({ directory, executable, snapshot, readHardware = async () => null, obs, onChange = () => {}, launch = spawn, run = runFile, verify = () => verifyCollector(executable) }) {
-  let current = null, initializing = null;
+  let current = null, initializing = null, historyWarnings = [];
   const metadataPath = id => path.join(directory, validateSessionId(id) + '.json');
   const csvPath = id => path.join(directory, validateSessionId(id) + '.csv');
   async function save(record) {
@@ -58,14 +59,19 @@ function createCaptureManager({ directory, executable, snapshot, readHardware = 
   async function records() {
     await fsp.mkdir(directory, { recursive: true });
     const files = (await fsp.readdir(directory)).filter(name => /^[a-f0-9]{32}\.json$/.test(name));
-    const result = [];
+    const result = [], warnings = [];
     for (const file of files) {
-      const bytes = await fsp.readFile(path.join(directory, file), 'utf8');
-      if (bytes.length > 100000) throw new Error('An FPS history file is too large. Check the local recordings folder.');
-      const record = JSON.parse(bytes);
-      if (record.version !== 1 || record.id + '.json' !== file) throw new Error('An FPS history file is invalid.');
-      result.push(record);
+      try {
+        const target = path.join(directory, file);
+        if ((await fsp.stat(target)).size > 100000) throw new Error('File is too large');
+        const bytes = await fsp.readFile(target, 'utf8');
+        result.push(validateRecord(JSON.parse(bytes), file, validateCapture));
+      } catch (error) {
+        if (error.code === 'ENOENT') continue; // A concurrent deletion is not corruption.
+        warnings.push(`Could not load ${file}. The original file and CSV were preserved in ${directory}. Restore a valid copy or move the damaged JSON out of this folder to dismiss this warning.`);
+      }
     }
+    historyWarnings = warnings;
     return result.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
   }
   function initialize() {
@@ -84,7 +90,7 @@ function createCaptureManager({ directory, executable, snapshot, readHardware = 
     return initializing;
   }
   function status() {
-    return current ? { active: true, ...current.record, frames: current.metrics.frames, stopping: current.stopping } : { active: false };
+    return current ? { active: true, ...current.record, frames: current.metrics.frames, stopping: current.stopping, historyWarnings } : { active: false, historyWarnings };
   }
   async function start(input) {
     const options = validateCapture(input);

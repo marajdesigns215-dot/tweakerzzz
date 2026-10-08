@@ -1,4 +1,5 @@
 """UI integration with explicit native fixtures; live NVIDIA writes are not simulated as hardware evidence."""
+import os
 from playwright.sync_api import sync_playwright, expect
 fixture = r'''(() => {
  window.calls=[];
@@ -13,7 +14,7 @@ fixture = r'''(() => {
 })();'''
 with sync_playwright() as p:
  b=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
- page=b.new_page(viewport={'width':1440,'height':1100});errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.add_init_script(fixture);page.goto('http://127.0.0.1:5173',wait_until='networkidle')
+ page=b.new_page(viewport={'width':1440,'height':1100});errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.add_init_script(fixture);page.goto(os.environ.get('TWEAKER_URL','http://127.0.0.1:5173'),wait_until='networkidle')
  page.get_by_role('button',name='Display studio',exact=True).click();expect(page.get_by_role('heading',name='Automatic program vibrance')).to_be_visible()
  page.get_by_role('button',name='Find running programs',exact=True).click();page.get_by_label('Running color program').select_option('cs2.exe');page.get_by_role('button',name='Add program',exact=True).click()
  page.get_by_label('Vibrance for cs2.exe').fill('72');page.get_by_label('Desktop digital vibrance').fill('51')

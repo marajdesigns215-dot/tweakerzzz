@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 from datetime import datetime,timedelta,timezone
+import os
 from playwright.sync_api import sync_playwright,expect
 root=Path(__file__).resolve().parents[1]
 ids=[r['id'] for r in json.loads((root/'scripts/windows/tweaks.json').read_text())]
@@ -15,7 +16,7 @@ for phase in ['before','after']:
 fixture='''(() => { const hardware=HARDWARE,states=STATES,records=RECORDS;let obs=false;window.tweaker={scan:async()=>hardware,getTweakStatus:async()=>states,listBackups:async()=>[],getDisplayModes:async()=>[],captureStatus:async()=>({active:false}),listCaptures:async()=>records,obsStatus:async()=>({connected:obs}),connectObs:async()=>{obs=true;return {connected:true}},disconnectObs:async()=>{obs=false},listPrograms:async()=>['FortniteClient-Win64-Shipping.exe']}; })();'''.replace('HARDWARE',json.dumps(hardware)).replace('STATES',json.dumps(states(True))).replace('RECORDS',json.dumps(records))
 artifacts=Path('/tmp/tweakerzzz-validation');artifacts.mkdir(exist_ok=True)
 with sync_playwright() as p:
- b=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox']);page=b.new_page(viewport={'width':1440,'height':1000});errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.add_init_script(fixture);page.goto('http://127.0.0.1:5173',wait_until='networkidle');page.screenshot(path=str(artifacts/'bubblegum-overview.png'),full_page=True)
+ b=p.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox']);page=b.new_page(viewport={'width':1440,'height':1000});errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.add_init_script(fixture);page.goto(os.environ.get('TWEAKER_URL','http://127.0.0.1:5173'),wait_until='networkidle');page.screenshot(path=str(artifacts/'bubblegum-overview.png'),full_page=True)
  assert page.evaluate('getComputedStyle(document.documentElement).getPropertyValue("--pink").trim()')=='#ff4fa3'
  page.get_by_role('button',name='FPS recorder',exact=True).click();page.get_by_label('Game profile',exact=True).select_option('fortnite');page.get_by_role('button',name='Scan for recommendations').click();expect(page.locator('.game-advisor')).to_contain_text('AMD Ryzen 9 5900X');expect(page.locator('.game-advisor')).to_contain_text('NVIDIA Reflex');expect(page.get_by_role('button',name='Already configured — skipped')).to_be_disabled();expect(page.locator('.evidence-card')).to_contain_text('Repeated improvement');expect(page.locator('.evidence-card')).to_contain_text('3 independent pairs')
  page.locator('.advisor-select select').select_option('after2');expect(page.locator('.advisor-cards')).to_contain_text('Investigate sustained GPU load');page.locator('.game-advisor').screenshot(path=str(artifacts/'bubblegum-recommendations.png'))

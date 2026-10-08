@@ -54,6 +54,7 @@ export function PerformanceLab({ hardware, settings, scanHardware, refreshSettin
     <div className="notice-panel"><Activity size={22}/><div><strong>Standalone FPS recorder · OBS is not required.</strong><p>Record a repeatable scene before changes, apply your tweaks, then repeat it as an After run. Use the same resolution, graphics, FPS cap, and streaming or recording workload. Game FPS, 1% lows, frame times, and before/after comparisons work without an OBS connection.</p></div></div>
     {!native && <p className="callout">FPS recording requires the Windows desktop app. The browser preview cannot measure frames from other programs.</p>}
     <Diagnostics title="FPS recording needs attention" error={error}/>
+    <Diagnostics title="Some recording files need attention" warnings={(status.historyWarnings ?? []).map(message => ({ component: 'Recording history', message }))}/>
     <section className="panel capture-panel">
       <h2>{status.active ? 'Recording in progress' : 'Start a recording'}</h2>
       {status.active ? <>
@@ -94,6 +95,7 @@ export function PerformanceLab({ hardware, settings, scanHardware, refreshSettin
       ].map(row => <tr key={row[0]}>{row.map((cell, i) => i === 0 ? <th key={i}>{cell}</th> : <td key={i}>{cell}</td>)}</tr>)}</tbody></table></div>
         <p className="body-copy">Detected tweak status changes: {comparison.changed.length ? comparison.changed.map(id => tweaks.find(t => t.id === id)?.title || id).join(', ') : 'None among the supported automatic settings.'}</p>
         {comparison.shortRun && <p className="callout">At least one run contains fewer than 30 seconds of frame samples. Capture a longer repeatable scene before drawing conclusions.</p>}
+        {comparison.hardwareUnverified && <p className="callout">These older runs have no hardware snapshot. Hardware and graphics-driver consistency cannot be verified; treat this comparison as an observation only.</p>}
         <p className="fine-print">Differences are measured observations, not proof a tweak caused a gain. Repeat runs to account for scene variation, temperatures, caches, and background tasks. The snapshot records saved tweak states; it cannot confirm restart completion or detect every external setting change.</p>
       </>}
     </section>

@@ -120,6 +120,7 @@ jobs:
           path: |
             release/Tweakerzzz-Setup-*-x64.exe
             release/SHA256SUMS.txt
+            release/qa/*
           if-no-files-found: error
           retention-days: 14
 
