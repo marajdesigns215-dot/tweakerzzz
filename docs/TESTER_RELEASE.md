@@ -1,4 +1,10 @@
-Download **Tweakerzzz-Setup-0.4.0-x64.exe** below. Quit the old app (including its tray icon), then run the installer. No Node/npm or PowerShell launch commands are needed.
+Download **Tweakerzzz-Setup-0.5.0-x64.exe** below. Quit the old app (including its tray icon), then run the installer. No Node/npm or PowerShell launch commands are needed.
+
+**Automatic game vibrance:** Display studio now has NVIDIA digital-vibrance profiles for the foreground game/program on a selected monitor. Choose the monitor, add the real game executable, set desktop/game levels, confirm SDR (HDR off), then Save & start observer. Stop or quit to restore the original driver level; closing the window keeps an active observer in the tray. Profiles do not auto-start at login. AMD, Intel, hybrid/remote outputs, and unsupported NVIDIA controls stay unavailable. Brightness/contrast/warmth remain preview-only. Physical NVIDIA color changes still require tester validation; CI checks the helper and unsupported-hardware path without changing a display.
+
+**Drivers & devices:** Scan actual motherboard/system/BIOS, GPU/CPU, storage, component driver versions, and peripherals for official vendor support links. Match the exact model, board/device revision, and Windows version before downloading. Fan software is suggested for the motherboard or identifiable USB controller; individual ordinary fans usually cannot be detected. These are support recommendations, not verified update availability. No automatic downloads, installs, BIOS flashes, or firmware changes.
+
+**Settings snapshot fix:** Saving a snapshot no longer launches the downloaded `tweaks.ps1` file. It uses a fixed read-only query and preserves the same exact-value backup format without changing execution policy. Windows validation reproduces an Internet-zone-marked script and checks all 22 saved preferences. For tester installation, download the **.exe asset**, not GitHub’s “Source code (zip)”. Apply/restore from a source ZIP still requires trusting/unblocking that ZIP or using an approved distribution.
 
 **Bubblegum edition:** hot pink, thunder yellow, plum backgrounds, rounded controls, and an updated desktop/tray icon.
 

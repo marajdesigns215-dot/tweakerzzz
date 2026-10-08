@@ -39,6 +39,13 @@ jobs:
       - name: Build application
         run: npm run build
 
+      - name: Build and check native color helper without changing display settings
+        run: |
+          npm run prepare:color
+          if ($LASTEXITCODE -ne 0) { throw 'Color helper compilation failed.' }
+          node tests/windows.colors.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Color helper validation failed.' }
+
       - name: Prepare verified FPS collector
         run: npm run prepare:collector
 

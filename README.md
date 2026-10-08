@@ -2,7 +2,7 @@
 
 A Windows gaming and content-creation workspace built with React, TypeScript, Vite, and Electron. Start with a hardware scan, review a plan, apply supported settings with a local backup, and compare your actual results.
 
-**Status: v0.4.0 development build.** Browser workflows and Windows inventory, tweak detection, recommendations, OBS protocol, repeated-run analysis, and registry apply/restore are covered by automated checks. Tagged installers must also pass packaged-file, install, launch, shortcut, and uninstall checks before release. Monitor switching, vendor-specific devices, and actual performance results still need hardware testing. Direct NVIDIA vibrance control and automatic per-device vendor tuning are not implemented; those settings currently use previews or guides.
+**Status: v0.5.0 development build.** Browser workflows and Windows inventory, tweak detection, recommendations, OBS protocol, repeated-run analysis, and registry apply/restore are covered by automated checks. Tagged installers must also pass packaged-file, install, launch, shortcut, and uninstall checks before release. Monitor switching, vendor-specific devices, and actual performance results still need hardware testing. NVIDIA digital vibrance profiles use a native foreground observer with exact-level recovery. Physical NVIDIA color writes still need tester hardware validation; brightness/contrast/warmth and vendor-specific device tuning remain previews or guides.
 
 The included reference configuration comes from the supplied screenshot: **Ryzen 9 5900X, GeForce RTX 4060 8 GB, 32 GB RAM at 3200 MHz, and Windows 11 Pro**. Reference values are labeled and are replaced by a scan or imported report; they are not measurements of the computer running the browser.
 
@@ -14,6 +14,8 @@ The included reference configuration comes from the supplied screenshot: **Ryzen
 | Windows hardware scan | Reads CPU/RAM directly through Node APIs, then supplements inventory through fixed, read-only CIM/PnP commands with a WMI fallback. PC and peripheral scans are separate; a failed optional provider produces a warning and unknown values instead of failing the complete report. NVIDIA VRAM uses `nvidia-smi` when available; otherwise it remains unknown. Scan reports can be exported and imported. |
 | Current Windows settings | Checks all 22 supported automatic tweaks at startup and after apply/restore. **Already configured** means stored values match; **Different settings**, **Not configured**, and **Unable to read** remain distinct. Missing preferences do not imply a particular Windows default. Guided settings remain manual. |
 | Automatic changes | Applies an allowlist of per-user registry preferences and, if selected and available, the existing High performance power scheme. Original state is recorded before writing. Settings already matching the requested values are skipped; an entirely redundant plan creates no backup. |
+| Program colors | NVIDIA digital vibrance per foreground executable on one selected SDR display. Desktop fallback, tray observer, exact original-level recovery. No game injection or automatic login startup. |
+| Drivers & devices | Fresh motherboard/system/BIOS/component/peripheral scan, installed driver versions, and matched official support directories. Unknown models stay unresolved; no automatic installations or BIOS flashes. |
 | Display modes | Lists driver-advertised modes for the **primary display**. Tests resolution and refresh changes temporarily, with a **15-second confirmation deadline** and rollback when unconfirmed. Custom timings and NVIDIA scaling controls are not implemented. |
 | Display studio | Provides visual color previews and locally saved reference profiles. Actual Digital Vibrance and GPU scaling use the NVIDIA Control Panel guides; there is no integrated NVIDIA color-control API. |
 | Peripherals | Reads product descriptions, USB IDs, and up to four parent levels, groups matching interfaces, and includes cameras. Known G102/G203 USB IDs have a local fallback; shared IDs stay labeled as a family. Device cards choose G102/G203, EP-84, Corsair VOID, or category guides from the reported evidence. DPI, polling rates, actuation, camera modes, and firmware remain manual and are not measured by the scanner. |
@@ -30,7 +32,7 @@ Settings have different purposes: some reduce overhead, some improve frame pacin
 
 ## Installer for Windows testers
 
-Download [Tweakerzzz Setup 0.4.0 for Windows x64](https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.4.0/Tweakerzzz-Setup-0.4.0-x64.exe) from the [tester release](https://github.com/marajdesigns215-dot/tweakerzzz/releases/tag/v0.4.0). Close any older Tweakerzzz window and double-click the installer. It installs for the current Windows account and creates desktop and Start menu shortcuts. Testers do **not** need Node.js, npm, a source checkout, or PowerShell launch commands.
+Download [Tweakerzzz Setup 0.5.0 for Windows x64](https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.5.0/Tweakerzzz-Setup-0.5.0-x64.exe) from the [tester release](https://github.com/marajdesigns215-dot/tweakerzzz/releases/tag/v0.5.0). Close any older Tweakerzzz window and double-click the installer. It installs for the current Windows account and creates desktop and Start menu shortcuts. Testers do **not** need Node.js, npm, a source checkout, or PowerShell launch commands.
 
 This is an **unsigned tester build**, so Windows may display an unknown-publisher or SmartScreen notice. Organization-managed policies may require a signed distribution. Uninstall in Windows Settings → Apps; profiles and restore backups are preserved. Read [tester release notes](docs/TESTER_RELEASE.md) for scanning and reporting instructions.
 
@@ -65,7 +67,7 @@ npm.cmd run dist:win -- --publish never
 
 The NSIS installer is written to `release/`. This project currently produces an **unsigned development build** unless a maintainer separately configures signing. Building does not publish a release. Review and test the build before distributing it.
 
-Hardware scans, peripheral scans, and tweak detection use built-in read-only Windows queries and do not execute downloaded `.ps1` files. Registry apply/restore and display scripts launch with process-scoped `RemoteSigned`, not `Bypass`; no permanent machine execution-policy change is made. Downloaded unsigned scripts or organizational execution policies can prevent native features from running. Keep applicable trust and organization policies in place and use an approved, trusted checkout or signed distribution. Ordinary supported operations target the current user and do not automatically request elevation.
+Hardware scans, peripheral scans, snapshots, and tweak detection use built-in read-only Windows queries and do not execute downloaded `.ps1` files. Registry apply/restore and display scripts launch with process-scoped `RemoteSigned`, not `Bypass`; no permanent machine execution-policy change is made. Downloaded unsigned scripts or organizational execution policies can prevent native features from running. Keep applicable trust and organization policies in place and use an approved, trusted checkout or signed distribution. Ordinary supported operations target the current user and do not automatically request elevation.
 
 ## Run the browser preview or cloud workspace
 
@@ -168,7 +170,7 @@ The browser workflow can also be exercised with `python tests/ui_smoke.py` when 
 
 ## Updating older versions and scan errors
 
-Close every Tweakerzzz window, download the latest GitHub ZIP, and extract it to a new folder. Open a terminal there and run `npm.cmd ci`, `npm.cmd run build`, then `npm.cmd run desktop`. Confirm the header says **v0.4.0**. This release uses larger text, brighter descriptions, and larger buttons/switches across all screens.
+Close every Tweakerzzz window, download the latest GitHub ZIP, and extract it to a new folder. Open a terminal there and run `npm.cmd ci`, `npm.cmd run build`, then `npm.cmd run prepare:color` and `npm.cmd run desktop`. Confirm the header says **v0.5.0**. This release uses larger text, brighter descriptions, and larger buttons/switches across all screens.
 
 The original error “scan.ps1 is not digitally signed” came from Windows marking a downloaded ZIP's scripts as Internet files. v0.2.0 scans and read-only tweak checks do not depend on that script. No PowerShell execution policy needs to change for these reads. **Apply/restore and display changes still use the native script trust policy.** If you trust the ZIP downloaded from your repository, use its **Properties → Unblock → Apply**, then extract it again to a new folder; do not disable organizational policy. An organization that requires signed software may need an approved signed build.
 
@@ -191,3 +193,24 @@ The local Logitech fallback covers `046D:C084` (G203), `046D:C092` (shared G102/
 Portable tests cover parent descriptors, generic receivers, unknown OEM IDs, headset grouping, separate identical devices, cameras, report privacy, and per-device guide selection. Windows runner checks exercise live inventory collection; recognition of individual physical devices and vendor-specific behavior still need tester verification.
 
 Run `python tests/ui_recommendations.py` with the development server for mocked-native recommendation/telemetry/OBS setup flows and responsive bubblegum UI checks. Actual GPU/CPU sensor hardware and real OBS installations still need tester validation; the WebSocket protocol test uses a local OBS-compatible fixture.
+
+
+## Per-program display colors (v0.5.0)
+
+Open **Display studio → Automatic program vibrance**. Select the NVIDIA-connected monitor, set desktop vibrance, and add the actual game executable through **Find running programs** or its exact `.exe` name. Choose each game's level, confirm Windows HDR is off and other color observers are stopped, then **Save & start observer**. Profile editing is locked while running; stopping restores the exact level read before the session. Closing the window keeps the observer in the tray. Quitting restores colors. The observer does not start automatically at Windows login.
+
+The native x64 helper loads `nvapi64.dll` only from Windows System32. It probes the NVIDIA DVC Ex interface before offering a display. It polls the foreground process twice per second, writes only when required, verifies driver read-back, and never injects into a game. Only digital vibrance is automated. The older brightness/contrast/warmth color study is still a visual preview. SDR must be confirmed by the user; HDR is not detected automatically. NVIDIA hybrid-laptop outputs, remote displays, AMD, Intel, or unsupported driver interfaces are not controlled.
+
+The original raw level and monitor interface identity are written to a local recovery record before any driver write. Parent input closure asks the independent helper to restore. If the helper is killed, the driver resets, or a monitor disconnects, recovery may require reconnecting the original monitor and selecting **Recover original colors**, or using NVIDIA Control Panel. A different monitor is never deliberately assigned another display's recovery values. Color settings are separate from registry backups. Keep observer state and other background software consistent in before/after FPS experiments.
+
+## Drivers & devices
+
+**Scan drivers & devices** reads the user's actual board manufacturer/product/revision, system model, BIOS version, GPU driver, storage models, component driver versions, and peripherals. Recommendations link to a fixed catalog of official support directories; an exact downloadable package is not inferred from a generic name. OEM system support takes priority for recognized Dell/HP/Lenovo/Acer systems. Motherboard pages are preferred for onboard network/audio and fan utilities. CPU names alone do not establish a chipset. Generic UVC cameras and HID devices can work with the built-in Windows drivers.
+
+The app does not check online version inventories or call a driver out of date. Confirm the exact model, revision, and OS before choosing packages. Standard fans are usually controlled through BIOS and are not individually enumerated; named USB cooling controllers can receive vendor utility suggestions. No automatic downloads, installs, overclocking, BIOS flashes, or firmware updates are performed.
+
+## Snapshot fix for downloaded source ZIPs
+
+**Save settings snapshot** now reads the allowlisted registry values and power scheme through a fixed read-only query, then atomically writes a local backup in the same format as previous releases. It does not execute downloaded `tweaks.ps1`, unblock files, or change PowerShell execution policy. Windows validation adds an Internet-zone marker to that script and checks a full 22-setting snapshot without registry/power changes. Existing apply/restore operations retain their script trust requirements; use the installer asset rather than the source ZIP for testers.
+
+The new color helper is compiled on Windows with `npm run prepare:color` using the built-in .NET Framework compiler. The Windows workflow checks compilation, profile validation/matching, live foreground querying, helper IPC, unsupported-hardware behavior, and packaged helper integrity. It cannot validate actual vibrance changes without a supported physical NVIDIA display; those remain a hardware testing requirement.

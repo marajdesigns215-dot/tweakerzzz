@@ -32,9 +32,25 @@ export interface FrameSummary { frames: number; sampledSeconds: number; averageF
 export interface CaptureRecord extends CaptureOptions { version: number; id: string; startedAt: string; endedAt?: string; status: 'recording' | 'completed' | 'failed' | 'interrupted'; collector: string; settings: TweakStatusReport; settingsEnd?: TweakStatusReport | null; hardware?: SystemScan | null; hardwareKey?: string | null; telemetrySummary?: TelemetrySummary | null; summary: FrameSummary | null; error: string; collectorWarnings?: string; stopReason?: string }
 export type CaptureStatus = { active: false } | (Partial<CaptureRecord> & { active: true; frames: number; stopping: boolean });
 export interface DisplayMode { width: number; height: number; refreshRate: number }
+export interface ProgramColorConfig { displayId: string; desktop: number; sdrConfirmed: boolean; profiles: { processName: string; vibrance: number }[] }
+export interface ColorStatus { active: boolean; activeProgram: string; supported: boolean; recoveryPending: boolean; displays: { id: string; label: string; vibrance: number }[]; config: ProgramColorConfig; error: string }
+export interface DriverReport {
+  hardware: SystemScan; scannedAt: string; warnings: ScanWarning[];
+  board: { manufacturer: string; product: string; version: string };
+  computer: { manufacturer: string; model: string }; bios: { manufacturer: string; version: string };
+  disks: { model: string; firmware: string }[];
+  devices: { name: string; category: string; provider: string; version: string }[];
+  recommendations: { id: string; category: string; title: string; device: string; source: string | null; sourceName: string; reason: string; note: string; confidence: string }[];
+}
 declare global {
   interface Window {
     tweaker?: {
+      scanDrivers(): Promise<DriverReport>;
+      openDriverSource(id: string): Promise<void>;
+      colorStatus(): Promise<ColorStatus>;
+      saveColorProfiles(config: ProgramColorConfig): Promise<ColorStatus>;
+      startColorProfiles(): Promise<ColorStatus>;
+      stopColorProfiles(): Promise<ColorStatus>;
       scan(): Promise<SystemScan>;
       scanPeripherals(): Promise<PeripheralScan>;
       getTweakStatus(): Promise<TweakStatusReport>;

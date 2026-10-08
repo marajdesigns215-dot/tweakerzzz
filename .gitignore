@@ -8,3 +8,4 @@ release/
 *.tsbuildinfo
 
 vendor/presentmon/*.exe
+build/color/

@@ -2,6 +2,12 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('tweaker', Object.freeze({
+  scanDrivers: () => ipcRenderer.invoke('tweaker:drivers'),
+  openDriverSource: id => ipcRenderer.invoke('tweaker:driver-source', id),
+  colorStatus: () => ipcRenderer.invoke('tweaker:color-status'),
+  saveColorProfiles: config => ipcRenderer.invoke('tweaker:color-save', config),
+  startColorProfiles: () => ipcRenderer.invoke('tweaker:color-start'),
+  stopColorProfiles: () => ipcRenderer.invoke('tweaker:color-stop'),
   changePreferences: (action, ids) => ipcRenderer.invoke('tweaker:preferences', action, ids),
   obsStatus: () => ipcRenderer.invoke('tweaker:obs-status'),
   connectObs: input => ipcRenderer.invoke('tweaker:obs-connect', input),

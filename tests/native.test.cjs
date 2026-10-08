@@ -105,6 +105,9 @@ async function nativeHarness({ singleInstance = true } = {}) {
   const capture = { active: false, isActive() { return this.active; }, async start(input) { require('../electron/capture.cjs').validateCapture(input); this.active = true; return { active: true }; }, async stop() { this.active = false; }, status() { return { active: this.active }; } };
   class FakeTray extends EventEmitter { setToolTip() {} setContextMenu() {} }
   const fakeRequire = id => {
+    if (id === './snapshots.cjs') return { saveSnapshot: async (_directory, ids) => ({ backupId: 'a'.repeat(32), applied: ids }) };
+    if (id === './drivers.cjs') return { scanDrivers: async () => ({ recommendations: [] }), driverSource: require('../electron/drivers.cjs').driverSource };
+    if (id === './colors.cjs') return { createColorManager: () => ({ isActive: () => false, close: async () => {} }) };
     if (id === './obs.cjs') return { createObsClient: () => ({ status: () => ({ connected: false }) }) };
     if (id === './capture.cjs') return { createCaptureManager: () => capture, listPrograms: async () => [] };
     if (id === './presentmon.json') return require('../electron/presentmon.json');

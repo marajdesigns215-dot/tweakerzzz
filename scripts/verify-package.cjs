@@ -28,6 +28,9 @@ function checkPe(file, machine) {
 function verify() {
   checkPe(installer);
   checkPe(path.join(root, 'release', 'win-unpacked', 'Tweakerzzz.exe'), 0x8664);
+  checkPe(path.join(resources, 'color', 'Tweakerzzz.Color.exe'), 0x8664);
+  assert.deepEqual(fs.readFileSync(path.join(resources, 'color', 'Tweakerzzz.Color.exe')), fs.readFileSync(path.join(root, 'build', 'color', 'Tweakerzzz.Color.exe')));
+  assert.deepEqual(asar.extractFile(archive, path.join('electron', 'driver-sources.json')), fs.readFileSync(path.join(root, 'electron', 'driver-sources.json')));
   const packed = JSON.parse(asar.extractFile(archive, 'package.json').toString());
   assert.equal(packed.version, source.version);
   assert.equal(packed.main, 'electron/main.cjs');

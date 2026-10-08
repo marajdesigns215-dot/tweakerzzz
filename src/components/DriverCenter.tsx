@@ -1,0 +1,27 @@
+import { useState } from 'react';
+import { ArrowUpRight, Cpu, Download, Fan, LoaderCircle, ScanLine } from 'lucide-react';
+import type { DriverReport } from '../types';
+import { Diagnostics } from './SystemStatus';
+
+export function DriverCenter() {
+  const [report, setReport] = useState<DriverReport | null>(null);
+  const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  const [filter, setFilter] = useState('All devices'); const [query, setQuery] = useState('');
+  async function scan() { setBusy(true); setError(''); try { setReport(await window.tweaker!.scanDrivers()); } catch (e) { setError(String(e)); } finally { setBusy(false); } }
+  const categories = ['All devices', ...new Set(report?.recommendations.map(r => r.category) || [])];
+  const cards = report?.recommendations.filter(r => (filter === 'All devices' || r.category === filter) && `${r.title} ${r.device} ${r.sourceName}`.toLowerCase().includes(query.toLowerCase())) || [];
+  return <div className="driver-center">
+    <div className="panel driver-intro"><span className="driver-mark"><Download size={30}/></span><div><span className="eyebrow">THE RIGHT TOOLS FOR YOUR BUILD</span><h2>Drivers & device software</h2><p className="body-copy">Scan your motherboard, graphics, CPU, storage, and connected peripherals. Find official support pages, installed driver versions, and compatible utilities to check.</p></div><button className="button primary" disabled={!window.tweaker?.scanDrivers || busy} onClick={scan}>{busy ? <LoaderCircle className="spin" size={17}/> : <ScanLine size={17}/>}Scan drivers & devices</button></div>
+    <Diagnostics title="Device scan needs attention" error={error}/>
+    {report?.warnings.map((w, i) => <Diagnostics key={i} title={`${w.component} unavailable`} error={w.message}/>)}
+    {!report && <section className="panel"><Cpu size={28}/><h3>Start with this PC’s actual hardware</h3><p className="body-copy">Recommendations appear after a fresh scan. No driver updates, downloads, firmware flashes, or installations happen automatically.</p>{!window.tweaker?.scanDrivers && <p className="fine-print">Open the Windows desktop app to scan. Reference specs and generic HID names cannot establish an exact driver match.</p>}</section>}
+    {report && <>
+      <div className="driver-facts"><div className="panel"><span className="eyebrow">MOTHERBOARD</span><h3>{[report.board.manufacturer, report.board.product].filter(Boolean).join(' ') || 'Not reported'}</h3><p>Revision: {report.board.version || 'not reported'}</p></div><div className="panel"><span className="eyebrow">SYSTEM & BIOS</span><h3>{[report.computer.manufacturer, report.computer.model].filter(Boolean).join(' ') || 'Not reported'}</h3><p>BIOS: {report.bios.version || 'not reported'}</p></div><div className="panel"><span className="eyebrow">GRAPHICS DRIVER</span><h3>{report.hardware.gpu.name}</h3><p>Installed: {report.hardware.gpu.driverVersion || 'not reported'}</p></div></div>
+      <div className="driver-toolbar"><label className="field-label">DEVICE CATEGORY<select aria-label="Device category" value={filter} onChange={e => setFilter(e.target.value)}>{categories.map(c => <option key={c}>{c}</option>)}</select></label><label className="field-label">FIND HARDWARE OR SOFTWARE<input placeholder="Motherboard, Logitech, chipset…" value={query} onChange={e => setQuery(e.target.value)}/></label><span className="fine-print">Scanned {new Date(report.scannedAt).toLocaleString()}</span></div>
+      <div className="driver-cards">{cards.map(card => <article className="panel driver-card" key={card.id}><div className="section-heading"><span className="pill">{card.category}</span><span className="fine-print">{card.confidence}</span></div><h3>{card.title}</h3><strong className="driver-device">{card.device}</strong><p>{card.reason}</p><p className="fine-print">{card.note}</p>{card.source && <button className="button secondary" onClick={async () => { try { await window.tweaker!.openDriverSource(card.source!); } catch (e) { setError(String(e)); } }}>{card.sourceName}<ArrowUpRight size={16}/></button>}</article>)}</div>
+      {!cards.length && <p className="body-copy">No recommendations match this filter.</p>}
+      <section className="panel driver-inventory"><h2>Installed driver inventory</h2><p className="body-copy">Windows-reported versions for graphics, platform, storage controllers, network, audio, Bluetooth, and USB. “Installed” does not mean current; this app does not compare online package versions.</p><div className="driver-table"><table><thead><tr><th>Device</th><th>Category / provider</th><th>Installed version</th></tr></thead><tbody>{report.devices.map((d, i) => <tr key={i}><td>{d.name}</td><td>{d.category}<br/><span>{d.provider}</span></td><td>{d.version || 'Not reported'}</td></tr>)}</tbody></table></div>{!report.devices.length && <p>No component drivers were reported.</p>}</section>
+    </>}
+    <div className="panel driver-note"><Fan size={25}/><div><h3>About fans, CPU drivers, and firmware</h3><p className="body-copy">Standard PWM/DC fans normally use your motherboard’s BIOS fan curves. Windows may identify a USB cooling controller, but usually cannot identify individual fans. CPUs generally need the correct platform/chipset package, not a separate FPS driver. Check the exact device, board revision, and Windows version on the vendor’s page.</p></div></div>
+  </div>;
+}

@@ -9,11 +9,14 @@ const { scanSystem, scanPeripherals } = require('./scanner.cjs');
 const { nativeError } = require('./native-errors.cjs');
 const { getTweakStatus } = require('./tweak-status.cjs');
 const { listBackups } = require('./backups.cjs');
+const { saveSnapshot } = require('./snapshots.cjs');
+const { scanDrivers, driverSource } = require('./drivers.cjs');
+const { createColorManager } = require('./colors.cjs');
 const { createCaptureManager, listPrograms } = require('./capture.cjs');
 const collector = require('./presentmon.json');
 const { createObsClient } = require('./obs.cjs');
 const obs = createObsClient();
-let capture, tray, captureStart;
+let capture, tray, captureStart, colors;
 
 let window;
 let nativeBusy = false;
@@ -190,10 +193,11 @@ function showWindow() {
 function updateTray() {
   if (!tray) return;
   const active = capture?.isActive();
-  tray.setToolTip(active ? 'Tweakerzzz — recording FPS' : 'Tweakerzzz');
+  tray.setToolTip(active ? 'Tweakerzzz — recording FPS' : colors?.isActive() ? 'Tweakerzzz — automatic game vibrance' : 'Tweakerzzz');
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Open Tweakerzzz', click: showWindow },
     { label: 'Stop FPS recording', enabled: !!active, click: () => capture.stop().catch(error => dialog.showErrorBox('FPS recording', error.message)) },
+    { label: 'Stop color profiles & restore', enabled: !!colors?.isActive(), click: () => colors.stop().catch(error => dialog.showErrorBox('Display colors', error.message)) },
     { type: 'separator' }, { label: 'Quit Tweakerzzz', click: () => app.quit() },
   ]));
 }
@@ -208,6 +212,12 @@ function registerHandlers() {
   });
   const backupDirectory = path.join(app.getPath('userData'), 'backups');
   handle('tweaker:scan', () => scanSystem());
+  handle('tweaker:drivers', () => scanDrivers());
+  handle('tweaker:driver-source', id => shell.openExternal(driverSource(id)));
+  handle('tweaker:color-status', () => colors.status());
+  handle('tweaker:color-save', config => exclusive(() => { ensureNotRecording(); return colors.save(config); }));
+  handle('tweaker:color-start', () => exclusive(() => { ensureNotRecording(); if (pendingDisplay) throw new Error('Finish the resolution test first.'); return colors.start(); }));
+  handle('tweaker:color-stop', () => exclusive(() => colors.stop()));
   handle('tweaker:peripherals', () => scanPeripherals());
   handle('tweaker:status', () => {
     if (!statusRequest) statusRequest = exclusive(() => getTweakStatus()).finally(() => { statusRequest = null; });
@@ -225,7 +235,7 @@ function registerHandlers() {
   handle('tweaker:preferences', (action, ids) => {
     if (!['disable', 'defaults', 'snapshot'].includes(action)) throw new Error('Unsupported preference action.');
     const approved = validateTweakIds(ids);
-    return exclusive(() => { ensureNotRecording(); return native('tweaks.ps1', { action, ids: approved, backupDirectory }); });
+    return exclusive(() => { ensureNotRecording(); return action === 'snapshot' ? saveSnapshot(backupDirectory, approved) : native('tweaks.ps1', { action, ids: approved, backupDirectory }); });
   });
   handle('tweaker:obs-status', () => obs.status());
   handle('tweaker:obs-connect', input => { ensureNotRecording(); return obs.connect(input); });
@@ -275,6 +285,7 @@ function registerHandlers() {
     const mode = validateDisplayMode(input);
     return exclusive(async () => {
       ensureNotRecording();
+      if (colors?.isActive()) throw new Error('Stop automatic color profiles before testing a resolution.');
       await revertDisplay();
       return beginDisplayTest(mode);
     });
@@ -301,7 +312,7 @@ function createWindow() {
   window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   window.webContents.session.setPermissionCheckHandler(() => false);
   window.webContents.on('render-process-gone', () => { revertDisplay().catch(() => {}); });
-  window.on('close', event => { if (!quitting && capture?.isActive() && tray) { event.preventDefault(); window.hide(); } });
+  window.on('close', event => { if (!quitting && (capture?.isActive() || colors?.isActive()) && tray) { event.preventDefault(); window.hide(); } });
   window.loadURL(entry);
 }
 
@@ -311,6 +322,11 @@ else {
     showWindow();
   });
   app.whenReady().then(() => {
+    colors = createColorManager({
+      directory: path.join(app.getPath('userData'), 'display-colors'),
+      executable: app.isPackaged ? path.join(process.resourcesPath, 'color', 'Tweakerzzz.Color.exe') : path.join(__dirname, '..', 'build', 'color', 'Tweakerzzz.Color.exe'),
+      onChange: () => updateTray(),
+    });
     capture = createCaptureManager({
       directory: path.join(app.getPath('userData'), 'recordings'),
       executable: app.isPackaged ? path.join(process.resourcesPath, 'presentmon', collector.file) : path.join(__dirname, '..', 'vendor', 'presentmon', collector.file),
@@ -328,8 +344,7 @@ else {
 app.on('before-quit', event => {
   if (quitting) return;
   quitting = true;
-  if (!pendingDisplay && !capture?.isActive()) return;
   event.preventDefault();
-  Promise.resolve(captureStart).catch(() => {}).then(() => Promise.allSettled([revertDisplay(), capture.stop()])).finally(() => app.quit());
+  Promise.resolve(captureStart).catch(() => {}).then(() => Promise.allSettled([revertDisplay(), capture?.stop(), colors?.close()])).finally(() => app.quit());
 });
 app.on('window-all-closed', () => app.quit());
