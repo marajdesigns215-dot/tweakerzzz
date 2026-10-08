@@ -10,20 +10,23 @@ const command = `$ErrorActionPreference = 'Stop'; $ProgressPreference = 'Silentl
 $manifest = '${JSON.stringify(manifest).replace(/'/g, "''")}' | ConvertFrom-Json
 $states = @(); foreach ($entry in $manifest) {
   try {
+    $values = @()
     if ($entry.id -eq 'power-plan') {
       $active = (& "$env:SystemRoot\\System32\\powercfg.exe" /getactivescheme 2>&1) -join ' '
       if ($LASTEXITCODE -ne 0 -or $active -notmatch '[a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}') { throw 'Could not read the active power scheme.' }
+      $values += $Matches[0].ToLowerInvariant()
       $state = if ($Matches[0] -eq '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c') { 'enabled' } else { 'not-enabled' }
       $message = if ($state -eq 'enabled') { 'High performance is the active Windows power plan.' } else { 'A different Windows power plan is active.' }
     } else {
       $missing = $false; $different = $false
       foreach ($spec in @($entry.registry)) {
         $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($spec.path, $false)
-        if ($null -eq $key) { $missing = $true; continue }
+        if ($null -eq $key) { $missing = $true; $values += [ordered]@{ name = $spec.name; existed = $false }; continue }
         try {
-          if ($key.GetValueNames() -notcontains $spec.name) { $missing = $true; continue }
+          if ($key.GetValueNames() -notcontains $spec.name) { $missing = $true; $values += [ordered]@{ name = $spec.name; existed = $false }; continue }
           $kind = $key.GetValueKind($spec.name).ToString()
           $value = $key.GetValue($spec.name, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+          $values += [ordered]@{ name = $spec.name; existed = $true; kind = $kind; value = $value }
           if ($kind -ne $spec.kind -or [string]$value -cne [string]$spec.value) { $different = $true }
         } finally { $key.Dispose() }
       }
@@ -34,7 +37,9 @@ $states = @(); foreach ($entry in $manifest) {
         'not-configured' { 'One or more preferences are unset. The effective Windows default is not inferred.' }
       }
     }
-    $states += @{ id = $entry.id; status = $state; message = $message }
+    $hasher = [Security.Cryptography.SHA256]::Create()
+    try { $fingerprint = ([BitConverter]::ToString($hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes((ConvertTo-Json -InputObject $values -Depth 8 -Compress))))).Replace('-', '').ToLowerInvariant() } finally { $hasher.Dispose() }
+    $states += @{ id = $entry.id; status = $state; message = $message; fingerprint = $fingerprint }
   } catch { $states += @{ id = $entry.id; status = 'unknown'; message = ('Windows could not read this setting: ' + $_.Exception.Message) } }
 }
 [Console]::Out.WriteLine((@{ checkedAt = [DateTime]::UtcNow.ToString('o'); tweaks = $states } | ConvertTo-Json -Depth 5 -Compress))`;

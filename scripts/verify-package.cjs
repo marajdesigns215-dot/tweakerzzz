@@ -47,6 +47,7 @@ function verify() {
   assert.deepEqual(fs.readFileSync(path.join(resources, 'presentmon', 'LICENSE.txt')), fs.readFileSync(path.join(root, 'vendor', 'presentmon', 'LICENSE.txt')));
   assert.deepEqual(asar.extractFile(archive, path.join('electron', 'presentmon.json')), fs.readFileSync(path.join(root, 'electron', 'presentmon.json')));
   assert.deepEqual(fs.readFileSync(path.join(resources, 'app.ico')), fs.readFileSync(path.join(root, 'build', 'icon.ico')));
+  assert.ok(asar.extractFile(archive, path.join('node_modules', 'ws', 'index.js')).length > 0, 'OBS WebSocket runtime dependency is missing');
   const sum = crypto.createHash('sha256').update(fs.readFileSync(installer)).digest('hex');
   fs.writeFileSync(path.join(root, 'release', 'SHA256SUMS.txt'), `${sum}  ${installerName}\n`);
   console.log(`PASS: ${installerName}, Windows x64 application, renderer, all native modules/resources, and SHA-256 checksum.`);

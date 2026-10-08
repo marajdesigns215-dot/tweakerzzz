@@ -26,7 +26,7 @@ export function parseHardwareReport(input: unknown): SystemScan {
   if (warnings !== undefined && (!Array.isArray(warnings) || warnings.length > 30)) throw new Error('Invalid scan diagnostics.');
   return {
     cpu: { name: text(cpu.name), cores: number(cpu.cores, 4096), threads: number(cpu.threads, 16384) },
-    gpu: { name: text(gpu.name), vramGB: gpu.vramGB === null ? null : number(gpu.vramGB, 16384) },
+    gpu: { name: text(gpu.name), vramGB: gpu.vramGB === null ? null : number(gpu.vramGB, 16384), ...(gpu.driverVersion !== undefined ? { driverVersion: text(gpu.driverVersion, 100) } : {}) },
     memory: { totalGB: number(memory.totalGB, 1_000_000), speedMHz: number(memory.speedMHz, 100_000) },
     os: { name: text(os.name), build: text(os.build) },
     storage: { totalGB, freeGB },

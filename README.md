@@ -2,7 +2,7 @@
 
 A Windows gaming and content-creation workspace built with React, TypeScript, Vite, and Electron. Start with a hardware scan, review a plan, apply supported settings with a local backup, and compare your actual results.
 
-**Status: v0.3.0 development build.** Browser workflows and Windows inventory, tweak detection, and registry apply/restore are covered by automated checks. Tagged installers must also pass packaged-file, install, launch, shortcut, and uninstall checks before release. Monitor switching, vendor-specific devices, and actual performance results still need hardware testing. Direct NVIDIA vibrance control and automatic per-device vendor tuning are not implemented; those settings currently use previews or guides.
+**Status: v0.4.0 development build.** Browser workflows and Windows inventory, tweak detection, recommendations, OBS protocol, repeated-run analysis, and registry apply/restore are covered by automated checks. Tagged installers must also pass packaged-file, install, launch, shortcut, and uninstall checks before release. Monitor switching, vendor-specific devices, and actual performance results still need hardware testing. Direct NVIDIA vibrance control and automatic per-device vendor tuning are not implemented; those settings currently use previews or guides.
 
 The included reference configuration comes from the supplied screenshot: **Ryzen 9 5900X, GeForce RTX 4060 8 GB, 32 GB RAM at 3200 MHz, and Windows 11 Pro**. Reference values are labeled and are replaced by a scan or imported report; they are not measurements of the computer running the browser.
 
@@ -18,6 +18,10 @@ The included reference configuration comes from the supplied screenshot: **Ryzen
 | Display studio | Provides visual color previews and locally saved reference profiles. Actual Digital Vibrance and GPU scaling use the NVIDIA Control Panel guides; there is no integrated NVIDIA color-control API. |
 | Peripherals | Reads product descriptions, USB IDs, and up to four parent levels, groups matching interfaces, and includes cameras. Known G102/G203 USB IDs have a local fallback; shared IDs stay labeled as a family. Device cards choose G102/G203, EP-84, Corsair VOID, or category guides from the reported evidence. DPI, polling rates, actuation, camera modes, and firmware remain manual and are not measured by the scanner. |
 | Streaming lab | Provides editable starting recommendations and a downloadable OBS settings guide. The guide is entered manually in OBS; it is not an importable OBS profile. |
+| Game recommendations | Exact executable profiles for Fortnite, VALORANT, CS2, Apex, Call of Duty/Warzone, Marvel Rivals, and Cyberpunk, with a generic fallback. Uses live CPU/GPU/RAM/driver/settings scans and Gaming/Streaming/Recording workload. Suggestions explain applicability and tradeoffs; configured automatic tweaks are skipped. |
+| Repeated benchmark evidence | Named, controlled experiments compare at least three independent Before/After pairs with matching hardware, driver, conditions, duration, and collector settings. Exact tweak-value fingerprints at both ends detect changes during a run. Findings flag consistent improvements/regressions or insufficient evidence and keep multi-tweak changes grouped. |
+| Extra measurements | Optional overall CPU/RAM use, NVIDIA GPU utilization/temperature where supported, CPU package temperature from an already-running Libre Hardware Monitor WMI provider, and local read-only OBS v5 WebSocket lag counters. Unavailable sensors stay unavailable. |
+| Bubblegum interface | Hot pink and thunder yellow on plum surfaces, rounded panels and buttons, large readable controls, matching desktop/tray icon. |
 | FPS recorder | Bundled, checksum-verified PresentMon 2.3.0 records a selected executable while the window is in the tray. Local CSVs, average FPS, 1% lows, P95 frame times, tweak-state snapshots, and matched before/after comparisons. Windows tracing permissions may require launching as administrator under the same account. |
 | Restore center | Save a snapshot before changing anything, turn off supported tweaks configured by any tool, or remove their registry overrides to use Windows-managed defaults. Every change is backed up. Open Windows System Protection to create an OS restore point. |
 | Browser workspace | Supports browsing, planning, local profiles, report import/export, color previews, and OBS guidance. Hardware scans, FPS recording, Windows changes, backups, and display switching require the Windows desktop app. |
@@ -26,7 +30,7 @@ Settings have different purposes: some reduce overhead, some improve frame pacin
 
 ## Installer for Windows testers
 
-Download [Tweakerzzz Setup 0.3.0 for Windows x64](https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.3.0/Tweakerzzz-Setup-0.3.0-x64.exe) from the [tester release](https://github.com/marajdesigns215-dot/tweakerzzz/releases/tag/v0.3.0). Close any older Tweakerzzz window and double-click the installer. It installs for the current Windows account and creates desktop and Start menu shortcuts. Testers do **not** need Node.js, npm, a source checkout, or PowerShell launch commands.
+Download [Tweakerzzz Setup 0.4.0 for Windows x64](https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.4.0/Tweakerzzz-Setup-0.4.0-x64.exe) from the [tester release](https://github.com/marajdesigns215-dot/tweakerzzz/releases/tag/v0.4.0). Close any older Tweakerzzz window and double-click the installer. It installs for the current Windows account and creates desktop and Start menu shortcuts. Testers do **not** need Node.js, npm, a source checkout, or PowerShell launch commands.
 
 This is an **unsigned tester build**, so Windows may display an unknown-publisher or SmartScreen notice. Organization-managed policies may require a signed distribution. Uninstall in Windows Settings → Apps; profiles and restore backups are preserved. Read [tester release notes](docs/TESTER_RELEASE.md) for scanning and reporting instructions.
 
@@ -111,6 +115,28 @@ Records and CSVs are stored in `app.getPath('userData')/recordings`. Each run is
 
 The collector is [Intel PresentMon 2.3.0](https://github.com/GameTechDev/PresentMon/releases/tag/v2.3.0), distributed under the [included MIT license](vendor/presentmon/LICENSE.txt). `npm run prepare:collector` downloads the official executable and verifies the pinned SHA-256 in `electron/presentmon.json`; the installer and runtime verify it again. No arbitrary collector path or runtime download is exposed to the renderer.
 
+## Game recommendations and repeated experiments
+
+In **FPS recorder**, select a known game or its actual executable, choose Gaming/Streaming/Recording, and select **Scan for recommendations**. Only live detected specs are used as the current PC; imported reports and the reference Ryzen/RTX configuration do not stand in for a scan. Each card explains why it applies and its tradeoff. **Review this tweak** opens the existing plan/backup flow; vendor and in-game settings remain guided. The app never automatically applies or rolls back recommendations. Generic programs receive general guidance rather than a guessed game profile.
+
+Turn on **Use controlled benchmark conditions** to name an experiment and record the game resolution, graphics/upscaling/frame-generation settings, FPS cap, and game build. Confirm you warmed up the scene and kept other settings/workloads consistent. **Use for After run** copies conditions but requires confirming them again. Record at least 60 seconds of usable gameplay per run, with three separate runs before and three after the same change. A baseline is never reused in more than one pair.
+
+A recommendation from repeated tests requires matching executable, scene, workload, duration, collector/telemetry mode, hardware/Windows/graphics-driver signature, and confirmed benchmark conditions. Complete exact fingerprints of all 22 supported settings are compared at the start and end; unknown values or mid-run changes exclude a run. Old recordings without these snapshots remain available for ordinary comparison but cannot support this analysis. Game/OBS/driver-option values entered by the user are not independently inspected. A multi-tweak change is reported as a group, not attributed to one member.
+
+Three consistent pairs can flag improvements when average FPS or 1% lows improve by a median of at least 3%, without any pair worsening average/lows by more than 2% or P95 frame time by more than 2%. Consistent average regressions of 3%, low-FPS regressions of 5%, or P95 regressions of 5% are flagged for review. Average-FPS variation above 10% or low-FPS variation above 15% makes results inconclusive. These are conservative screening rules, not statistical significance or proof of causation. Untracked background work, heat, shader caches, and game content still matter.
+
+Streaming/recording findings additionally require connected OBS measurements with the matching output active throughout. If OBS lag or stream drops worsen by over one percentage point in any pair, the app reports a tradeoff rather than recommending the configuration as a clear win. Select a completed matching run under **Add measured signals** for CPU/GPU load and OBS-lag guidance; its hardware/driver snapshot must match the current live scan.
+
+## CPU/GPU temperatures and OBS measurements
+
+Enable **Record extra measurements** before a capture. These are optional because sampling adds overhead; use the same setting in both configurations. Overall CPU and system RAM are sampled every five seconds. A matching NVIDIA `nvidia-smi` provider supplies whole-device utilization and GPU temperature. These totals include other apps and do not prove which component limits a game. AMD/Intel GPU counters are currently unavailable through this collector.
+
+CPU package temperature is read only from an existing [Libre Hardware Monitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) WMI provider (`root\LibreHardwareMonitor`) with a recognized CPU Package / Tctl/Tdie sensor. Run that tool with its required permissions before capturing if you want this optional reading. Tweakerzzz installs no sensor driver, does not substitute ACPI thermal zones, and labels missing readings unavailable. Sensor availability depends on hardware and provider support; a reported temperature alone does not establish thermal throttling.
+
+For OBS, open **Tools → WebSocket Server Settings**, enable the built-in v5 server, and enter its port/password in the app’s OBS connection panel. Only `127.0.0.1` is supported. Passwords are used in memory and never saved to profiles, recording files, exports, or logs; reconnect after app restart. The client has a fixed read-only request list: `GetStats`, `GetStreamStatus`, and `GetRecordStatus`. It cannot start streams, stop recordings, or modify scenes/encoders.
+
+Start the intended stream/recording before the FPS run. Rendering lag, encoding lag, and stream drops are calculated from OBS counter deltas during collection. Counter resets, changed output activity, or disconnects make percentages unavailable. CPU package temperature is a peak, GPU temperature is a peak, CPU/GPU load is an average, and system RAM pressure is a peak. Missing data is never displayed as zero. Recordings and reports remain local until exported.
+
 ## Existing tweaks, defaults, and restore points
 
 **Restore center → Save settings snapshot** records all 22 supported preferences without modifying Windows, including settings created by another app. Select individual tweaks or **Select configured**, then review **turning off tweaks** or **Windows defaults**. The confirmation lists the effect of each action, and a backup preserves exact previous values/types before writing. Turning off privacy/debloat tweaks can re-enable suggestions or background behavior; review that list.
@@ -142,7 +168,7 @@ The browser workflow can also be exercised with `python tests/ui_smoke.py` when 
 
 ## Updating older versions and scan errors
 
-Close every Tweakerzzz window, download the latest GitHub ZIP, and extract it to a new folder. Open a terminal there and run `npm.cmd ci`, `npm.cmd run build`, then `npm.cmd run desktop`. Confirm the header says **v0.3.0**. This release uses larger text, brighter descriptions, and larger buttons/switches across all screens.
+Close every Tweakerzzz window, download the latest GitHub ZIP, and extract it to a new folder. Open a terminal there and run `npm.cmd ci`, `npm.cmd run build`, then `npm.cmd run desktop`. Confirm the header says **v0.4.0**. This release uses larger text, brighter descriptions, and larger buttons/switches across all screens.
 
 The original error “scan.ps1 is not digitally signed” came from Windows marking a downloaded ZIP's scripts as Internet files. v0.2.0 scans and read-only tweak checks do not depend on that script. No PowerShell execution policy needs to change for these reads. **Apply/restore and display changes still use the native script trust policy.** If you trust the ZIP downloaded from your repository, use its **Properties → Unblock → Apply**, then extract it again to a new folder; do not disable organizational policy. An organization that requires signed software may need an approved signed build.
 
@@ -163,3 +189,5 @@ This update is intended to work across testers’ devices. It does not assign th
 The local Logitech fallback covers `046D:C084` (G203), `046D:C092` (shared G102/G203 LIGHTSYNC), and `046D:C09D` (G102 LIGHTSYNC), using the [USB ID Repository](https://github.com/usbids/usbids/blob/master/usb.ids). Other models use device-supplied names or category guidance. Duplicate interfaces are grouped only when both product name and physical ancestry/container match; identical products on different devices remain separate. Shared receivers can still prevent exact physical-device counts.
 
 Portable tests cover parent descriptors, generic receivers, unknown OEM IDs, headset grouping, separate identical devices, cameras, report privacy, and per-device guide selection. Windows runner checks exercise live inventory collection; recognition of individual physical devices and vendor-specific behavior still need tester verification.
+
+Run `python tests/ui_recommendations.py` with the development server for mocked-native recommendation/telemetry/OBS setup flows and responsive bubblegum UI checks. Actual GPU/CPU sensor hardware and real OBS installations still need tester validation; the WebSocket protocol test uses a local OBS-compatible fixture.

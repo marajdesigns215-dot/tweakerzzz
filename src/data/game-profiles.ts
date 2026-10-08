@@ -1,0 +1,14 @@
+export interface GameProfile { id: string; name: string; executables: string[]; competitive: boolean; reflex: boolean; dlss: boolean; rayTracing: boolean; note: string }
+// Exact executable matches only. These describe settings to check, not detected
+// game capabilities, driver profiles, patches, or installed game configuration.
+export const gameProfiles: GameProfile[] = [
+  { id: 'generic', name: 'Other game / program', executables: [], competitive: false, reflex: false, dlss: false, rayTracing: false, note: 'No specific game profile matched. Only general hardware and workload guidance is shown.' },
+  { id: 'fortnite', name: 'Fortnite', executables: ['fortniteclient-win64-shipping.exe'], competitive: true, reflex: true, dlss: true, rayTracing: true, note: 'Compare the same replay or route after shaders have warmed up. Rendering mode changes can require shader recompilation; DX12 features are unavailable in Performance mode.' },
+  { id: 'valorant', name: 'VALORANT', executables: ['valorant-win64-shipping.exe'], competitive: true, reflex: true, dlss: false, rayTracing: false, note: 'Use the same practice-range sequence. Prioritize consistent frame times and in-game Reflex; do not change anti-cheat or Windows security settings.' },
+  { id: 'cs2', name: 'Counter-Strike 2', executables: ['cs2.exe'], competitive: true, reflex: true, dlss: false, rayTracing: false, note: 'Repeat the same demo/map segment. Menus and live matches are poor comparisons because their workloads vary.' },
+  { id: 'apex', name: 'Apex Legends', executables: ['r5apex.exe', 'r5apex_dx12.exe'], competitive: true, reflex: true, dlss: false, rayTracing: false, note: 'Repeat a firing-range route. Retain the same graphics API and texture-streaming budget between Windows-tweak tests.' },
+  { id: 'cod', name: 'Call of Duty / Warzone', executables: ['cod.exe'], competitive: true, reflex: true, dlss: true, rayTracing: false, note: 'The shared executable covers different Call of Duty releases. Check feature availability in your game; finish shader compilation and keep texture streaming consistent.' },
+  { id: 'rivals', name: 'Marvel Rivals', executables: ['marvelrivals-win64-shipping.exe'], competitive: true, reflex: true, dlss: true, rayTracing: false, note: 'Repeat a practice or replay sequence. Keep upscaling and frame generation unchanged; this logger measures application frames, not generated display frames.' },
+  { id: 'cyberpunk', name: 'Cyberpunk 2077', executables: ['cyberpunk2077.exe'], competitive: false, reflex: true, dlss: true, rayTracing: true, note: 'Use the built-in benchmark with the same crowd, ray-tracing, upscaling, and frame-generation settings.' },
+];
+export function matchGame(processName: string) { return gameProfiles.find(game => game.executables.includes(processName.trim().toLowerCase())) ?? gameProfiles[0]; }

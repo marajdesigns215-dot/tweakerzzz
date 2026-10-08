@@ -6,6 +6,7 @@ const crypto = require('node:crypto');
 const { spawn, execFile } = require('node:child_process');
 const { FrameMetrics } = require('./fps-metrics.cjs');
 const spec = require('./presentmon.json');
+const { createTelemetry } = require('./telemetry.cjs');
 
 function validateCapture(input) {
   if (!input || typeof input !== 'object') throw new Error('Choose a game and recording settings.');
@@ -13,7 +14,14 @@ function validateCapture(input) {
   if (!['before', 'after'].includes(input.phase) || !['Gaming', 'Streaming', 'Recording'].includes(input.context)) throw new Error('Choose a before/after phase and workload.');
   if (!Number.isInteger(input.seconds) || input.seconds < 30 || input.seconds > 3600) throw new Error('Choose a recording length between 30 seconds and 60 minutes.');
   if (typeof input.scenario !== 'string' || !input.scenario.trim() || input.scenario.length > 160 || /[\x00-\x1f]/.test(input.scenario)) throw new Error('Name the repeatable scene and graphics settings (up to 160 characters).');
-  return { processName: input.processName, phase: input.phase, context: input.context, seconds: input.seconds, scenario: input.scenario.trim() };
+  const extra = {};
+  if (input.telemetry !== undefined) { if (typeof input.telemetry !== 'boolean') throw new Error('Invalid telemetry choice.'); extra.telemetry = input.telemetry; }
+  if (input.benchmark !== undefined) {
+    const b = input.benchmark;
+    if (!b || typeof b !== 'object' || ['experiment', 'resolution', 'graphics', 'gameBuild'].some(key => typeof b[key] !== 'string' || !b[key].trim() || b[key].length > 120 || /[\x00-\x1f]/.test(b[key])) || !Number.isInteger(b.fpsCap) || b.fpsCap < 0 || b.fpsCap > 2000 || typeof b.verified !== 'boolean') throw new Error('Complete the benchmark conditions and use a whole-number FPS cap (0 means uncapped).');
+    extra.benchmark = { experiment: b.experiment.trim(), resolution: b.resolution.trim(), graphics: b.graphics.trim(), gameBuild: b.gameBuild.trim(), fpsCap: b.fpsCap, verified: b.verified };
+  }
+  return { ...extra, processName: input.processName, phase: input.phase, context: input.context, seconds: input.seconds, scenario: input.scenario.trim() };
 }
 function validateSessionId(id) {
   if (typeof id !== 'string' || !/^[a-f0-9]{32}$/.test(id)) throw new Error('Invalid recording ID.');
@@ -38,7 +46,7 @@ async function verifyCollector(executable) {
     if (crypto.createHash('sha256').update(bytes).digest('hex') !== spec.sha256) throw new Error('The bundled FPS collector failed its integrity check. Reinstall Tweakerzzz.');
 }
 
-function createCaptureManager({ directory, executable, snapshot, onChange = () => {}, launch = spawn, run = runFile, verify = () => verifyCollector(executable) }) {
+function createCaptureManager({ directory, executable, snapshot, readHardware = async () => null, obs, onChange = () => {}, launch = spawn, run = runFile, verify = () => verifyCollector(executable) }) {
   let current = null, initializing = null;
   const metadataPath = id => path.join(directory, validateSessionId(id) + '.json');
   const csvPath = id => path.join(directory, validateSessionId(id) + '.csv');
@@ -88,9 +96,11 @@ function createCaptureManager({ directory, executable, snapshot, onChange = () =
       await initialize(); await verify();
       const history = await records();
       if (history.length >= 100) throw new Error('Your 100-recording library is full. Export and delete an old recording before starting another.');
-      const settings = await snapshot();
+      const [settings, hardwareResult] = await Promise.all([snapshot(), Promise.resolve().then(readHardware).catch(() => null)]);
+      const hardware = hardwareResult ? { cpu: hardwareResult.cpu, gpu: hardwareResult.gpu, memory: hardwareResult.memory, os: hardwareResult.os, storage: hardwareResult.storage, scannedAt: hardwareResult.scannedAt, warnings: hardwareResult.warnings || [], peripherals: [] } : null;
+      const hardwareKey = hardware ? crypto.createHash('sha256').update(JSON.stringify([hardware.cpu, hardware.gpu, hardware.memory, hardware.os])).digest('hex') : null;
       const id = crypto.randomBytes(16).toString('hex');
-      const record = { version: 1, id, ...options, startedAt: new Date().toISOString(), status: 'recording', collector: 'PresentMon ' + spec.version, settings, summary: null, error: '' };
+      const record = { version: 1, id, ...options, startedAt: new Date().toISOString(), status: 'recording', collector: 'PresentMon ' + spec.version, settings, hardware, hardwareKey, summary: null, error: '' };
       await save(record);
       const metrics = new FrameMetrics(options.processName);
       const output = fs.createWriteStream(csvPath(id), { flags: 'wx' });
@@ -99,6 +109,7 @@ function createCaptureManager({ directory, executable, snapshot, onChange = () =
       const done = new Promise(resolve => { resolveDone = resolve; });
       const active = { record, metrics, child, output, done, stopping: false, error: '', stderr: '', bytes: 0 };
       current = active;
+      const telemetry = options.telemetry ? createTelemetry({ hardware, obs }) : null;
       const watchdog = setTimeout(() => { active.error = 'Recording exceeded its time limit; partial data may be incomplete.'; void stop(); }, (options.seconds + 15) * 1000);
       let finished = false;
       const finish = async code => {
@@ -108,6 +119,8 @@ function createCaptureManager({ directory, executable, snapshot, onChange = () =
           // Wait for buffered CSV writes before exposing export/delete actions.
           await new Promise(resolve => { if (output.destroyed) resolve(); else output.end(resolve); });
           record.endedAt = new Date().toISOString(); record.summary = metrics.summary();
+          record.telemetrySummary = telemetry ? await telemetry.stop() : null;
+          try { record.settingsEnd = await snapshot(); } catch { record.settingsEnd = null; }
           record.status = code === 0 && !active.error && record.summary ? 'completed' : 'failed';
           record.error = active.error || (code !== 0 ? (/access denied|privilege|Performance Log Users/i.test(active.stderr) ? 'Windows denied FPS tracing. Close Tweakerzzz, right-click its shortcut, choose Run as administrator for the same Windows account, and try again.' : 'PresentMon exited unexpectedly. ' + active.stderr.trim().slice(0, 1200)) : !record.summary ? 'No frames were captured. Start the game, check its actual .exe name, and keep it rendering during the recording. Some graphics APIs or protected games may not report frames.' : '');
           record.collectorWarnings = active.stderr.trim().slice(0, 2000);

@@ -14,7 +14,7 @@ const QUERIES = Object.freeze({
   cpu: cim('Win32_Processor', 'Name,NumberOfCores,NumberOfLogicalProcessors'),
   memory: cim('Win32_PhysicalMemory', 'Capacity,ConfiguredClockSpeed,Speed'),
   os: cim('Win32_OperatingSystem', 'Caption,BuildNumber'),
-  gpu: cim('Win32_VideoController', 'Name,PNPDeviceID'),
+  gpu: cim('Win32_VideoController', 'Name,PNPDeviceID,DriverVersion'),
   storage: cim('Win32_LogicalDisk', 'Size,FreeSpace', 'DriveType=3'),
   peripherals: peripheralQuery,
 });
@@ -87,7 +87,7 @@ function createScanner({ host = os, run = execute, exists = fs.existsSync, envir
     const freeGB = disks.length ? roundGB(disks.reduce((sum, disk) => sum + Number(disk.FreeSpace), 0)) : null;
     return {
       cpu: { name: text(data.cpu[0]?.Name, text(localCpu[0]?.model, 'Processor not reported')), cores, threads },
-      gpu: { name: text(gpu?.Name, 'Graphics not reported'), vramGB },
+      gpu: { name: text(gpu?.Name, 'Graphics not reported'), vramGB, ...(gpu?.DriverVersion ? { driverVersion: text(gpu.DriverVersion, 'Unknown') } : {}) },
       memory: { totalGB: roundGB(ram), speedMHz: speed },
       os: { name: text(data.os[0]?.Caption, host.version()), build: text(data.os[0]?.BuildNumber, host.release()) },
       storage: { totalGB, freeGB: totalGB !== null && freeGB !== null ? Math.min(totalGB, freeGB) : null },

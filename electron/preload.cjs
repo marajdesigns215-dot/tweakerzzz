@@ -3,6 +3,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('tweaker', Object.freeze({
   changePreferences: (action, ids) => ipcRenderer.invoke('tweaker:preferences', action, ids),
+  obsStatus: () => ipcRenderer.invoke('tweaker:obs-status'),
+  connectObs: input => ipcRenderer.invoke('tweaker:obs-connect', input),
+  disconnectObs: () => ipcRenderer.invoke('tweaker:obs-disconnect'),
   listPrograms: () => ipcRenderer.invoke('tweaker:programs'),
   startCapture: input => ipcRenderer.invoke('tweaker:capture-start', input),
   stopCapture: () => ipcRenderer.invoke('tweaker:capture-stop'),

@@ -105,6 +105,7 @@ async function nativeHarness({ singleInstance = true } = {}) {
   const capture = { active: false, isActive() { return this.active; }, async start(input) { require('../electron/capture.cjs').validateCapture(input); this.active = true; return { active: true }; }, async stop() { this.active = false; }, status() { return { active: this.active }; } };
   class FakeTray extends EventEmitter { setToolTip() {} setContextMenu() {} }
   const fakeRequire = id => {
+    if (id === './obs.cjs') return { createObsClient: () => ({ status: () => ({ connected: false }) }) };
     if (id === './capture.cjs') return { createCaptureManager: () => capture, listPrograms: async () => [] };
     if (id === './presentmon.json') return require('../electron/presentmon.json');
     if (id === 'electron') return { app, BrowserWindow: FakeWindow, Tray: FakeTray, Menu: { buildFromTemplate: data => data }, ipcMain: { handle: (name, fn) => handlers.set(name, fn) }, shell: { openExternal: async () => {}, openPath: async () => '' }, dialog: { showErrorBox: (title, message) => errors.push({ title, message }) } };

@@ -17,7 +17,7 @@ with sync_playwright() as p:
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))
     page.goto(URL, wait_until='networkidle')
-    expect(page.get_by_role('heading', name='Let’s find your next frame.')).to_be_visible()
+    expect(page.get_by_role('heading', name='Make every frame pop.')).to_be_visible()
     page.screenshot(path=str(ARTIFACTS / 'overview.png'), full_page=True)
     page.get_by_role('button', name='Build my optimization plan').click()
     expect(page.get_by_role('dialog')).to_be_visible()
@@ -98,7 +98,7 @@ with sync_playwright() as p:
     # Corrupted preferences must fall back safely.
     page.evaluate("localStorage.setItem('tz-reviewed','{}');localStorage.setItem('tz-colors','{}');localStorage.setItem('tz-color-profiles','{}');localStorage.setItem('tz-profile','{}')")
     page.reload(wait_until='networkidle')
-    expect(page.get_by_role('heading', name='Let’s find your next frame.')).to_be_visible()
+    expect(page.get_by_role('heading', name='Make every frame pop.')).to_be_visible()
     assert not errors, errors
     print('PASS: corrupted browser preferences recover without renderer errors')
 

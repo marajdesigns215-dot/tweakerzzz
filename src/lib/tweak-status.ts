@@ -8,7 +8,8 @@ export function parseTweakStatus(input: unknown, supported: string[]): TweakStat
   const tweaks = report.tweaks.map(item => {
     if (!item || !supported.includes(item.id) || seen.has(item.id) || !['enabled', 'not-enabled', 'not-configured', 'unknown'].includes(item.status) || typeof item.message !== 'string' || item.message.length > 3000) throw new Error('Invalid Windows setting status.');
     seen.add(item.id);
-    return { id: item.id, status: item.status, message: item.message };
+    if (item.fingerprint !== undefined && !/^[a-f0-9]{64}$/.test(item.fingerprint)) throw new Error('Invalid setting fingerprint.');
+    return { id: item.id, status: item.status, message: item.message, ...(item.fingerprint ? { fingerprint: item.fingerprint } : {}) };
   });
   return { checkedAt: report.checkedAt, tweaks };
 }

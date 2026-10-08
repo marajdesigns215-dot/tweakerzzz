@@ -11,6 +11,8 @@ const { getTweakStatus } = require('./tweak-status.cjs');
 const { listBackups } = require('./backups.cjs');
 const { createCaptureManager, listPrograms } = require('./capture.cjs');
 const collector = require('./presentmon.json');
+const { createObsClient } = require('./obs.cjs');
+const obs = createObsClient();
 let capture, tray, captureStart;
 
 let window;
@@ -225,6 +227,9 @@ function registerHandlers() {
     const approved = validateTweakIds(ids);
     return exclusive(() => { ensureNotRecording(); return native('tweaks.ps1', { action, ids: approved, backupDirectory }); });
   });
+  handle('tweaker:obs-status', () => obs.status());
+  handle('tweaker:obs-connect', input => { ensureNotRecording(); return obs.connect(input); });
+  handle('tweaker:obs-disconnect', () => { ensureNotRecording(); obs.disconnect(); });
   handle('tweaker:programs', () => listPrograms());
   handle('tweaker:capture-start', input => {
     captureStart = exclusive(() => {
@@ -287,7 +292,7 @@ function registerHandlers() {
 function createWindow() {
   window = new BrowserWindow({
     width: 1480, height: 950, minWidth: 900, minHeight: 640,
-    backgroundColor: '#0b0d10', title: 'TWEAKERZZZ', autoHideMenuBar: true,
+    backgroundColor: '#180b20', title: 'TWEAKERZZZ', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true },
   });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -309,7 +314,7 @@ else {
     capture = createCaptureManager({
       directory: path.join(app.getPath('userData'), 'recordings'),
       executable: app.isPackaged ? path.join(process.resourcesPath, 'presentmon', collector.file) : path.join(__dirname, '..', 'vendor', 'presentmon', collector.file),
-      snapshot: getTweakStatus,
+      snapshot: getTweakStatus, readHardware: scanSystem, obs,
       onChange: record => { updateTray(); if (record?.status === 'failed' && window && !window.isVisible()) showWindow(); },
     });
     registerHandlers();
