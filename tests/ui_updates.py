@@ -53,5 +53,10 @@ with sync_playwright() as p:
  expect(preview.get_by_text('In-app updates are available',exact=False)).to_be_visible()
  expect(preview.get_by_role('link',name='Open GitHub releases')).to_have_attribute('href','https://github.com/marajdesigns215-dot/tweakerzzz/releases')
  assert preview.get_by_role('button',name='Check for updates',exact=True).count()==0
+ for width in [390,900,1440]:
+  preview.set_viewport_size({'width':width,'height':850})
+  preview.get_by_role('button',name='Updates',exact=True).click()
+  expect(preview.get_by_role('link',name='Open GitHub releases')).to_be_visible()
+  assert preview.evaluate('document.documentElement.scrollWidth<=innerWidth'),width
  browser.close()
 print('PASS: manual check/download, progress, cancellation, checksum error, review/Later, blocked/successful install, text-only notes and browser fallback; no renderer errors.')

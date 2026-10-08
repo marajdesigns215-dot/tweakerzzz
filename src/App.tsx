@@ -207,7 +207,7 @@ export default function App() {
       <div className="sidebar-divider"/>
       <button aria-label="Restore center" className={`nav-item ${page === 'Restore center' ? 'active' : ''}`} onClick={() => go('Restore center')}><History size={18}/><span>Restore center</span>{backups.length > 0 && <span className="nav-count">{backups.length}</span>}</button>
       <button aria-label="How it works" className="nav-item" onClick={() => setShowAbout(true)}><CircleHelp size={18}/><span>How it works</span><ArrowUpRight className="muted" size={14}/></button>
-      <button className={`nav-item ${page === 'Updates' ? 'active' : ''}`} onClick={() => go('Updates')}><Download size={18}/><span>Updates</span></button>
+      <button aria-label="Updates" className={`nav-item ${page === 'Updates' ? 'active' : ''}`} onClick={() => go('Updates')}><Download size={18}/><span>Updates</span></button>
       <div className="sidebar-bottom"><div className="safe-card"><ShieldCheck size={21}/><strong>Performance. With a plan.</strong><p>Review every change.<br/>Keep a way back.</p><button onClick={() => go('Restore center')}>Explore restore center <ArrowRight size={13}/></button></div><div className="machine-status"><span className="status-light"/><div><strong>{native ? 'Desktop connected' : 'Workspace preview'}</strong><small>{native ? 'Windows companion' : 'Your specs. Your starting point.'}</small></div><button className="icon-button" aria-label="App information" onClick={() => setShowAbout(true)}><Settings2 size={17}/></button></div></div>
     </aside>
     <div className="workspace">
