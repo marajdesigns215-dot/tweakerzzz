@@ -61,7 +61,7 @@ export function PerformanceLab() {
       </> : <>
         <div className="capture-form">
           <label>GAME OR PROGRAM EXECUTABLE<input list="running-programs" placeholder="Example: game.exe" value={options.processName} maxLength={115} onChange={e => setOptions({ ...options, processName: e.target.value })}/><datalist id="running-programs">{programs.map(name => <option key={name} value={name}/>)}</datalist></label>
-          <button className="button secondary" disabled={!native || busy} onClick={() => action(async () => setPrograms(await window.tweaker!.listPrograms()))}><RotateCcw size={16}/>Find open programs</button>
+          <button className="button secondary" disabled={!native || busy} onClick={() => action(async () => setPrograms(await window.tweaker!.listPrograms()))}><RotateCcw size={16}/>Find running programs</button>
           <label>PHASE<select value={options.phase} onChange={e => setOptions({ ...options, phase: e.target.value as CaptureOptions['phase'] })}><option value="before">Before tweaks</option><option value="after">After tweaks</option></select></label>
           <label>WORKLOAD<select value={options.context} onChange={e => setOptions({ ...options, context: e.target.value as CaptureOptions['context'] })}><option>Gaming</option><option>Streaming</option><option>Recording</option></select></label>
           <label>STOP AFTER<select value={options.seconds} onChange={e => setOptions({ ...options, seconds: Number(e.target.value) })}>{[30, 60, 180, 300, 600, 1800, 3600].map(s => <option key={s} value={s}>{s < 60 ? '30 seconds' : `${s / 60} minutes`}</option>)}</select></label>

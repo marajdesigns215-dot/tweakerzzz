@@ -97,7 +97,7 @@ Display tests are separate from optimization backups. If a tested mode is unread
 
 ## Background FPS recording
 
-1. Launch your game, then open **FPS recorder**. Choose **Find open programs** or enter the game executable (for example, `game.exe`), not a path or launcher.
+1. Launch your game, then open **FPS recorder**. Choose **Find running programs** or enter the game executable (for example, `game.exe`), not a path or launcher.
 2. Choose **Before tweaks**, Gaming/Streaming/Recording, a time limit, and a scene label that includes your resolution, graphics, and FPS cap. Start OBS separately for streaming/recording tests.
 3. Start recording and return to the game. **Minimize to tray** or close the window to keep recording. The tray menu can reopen the app, stop recording, or quit. The app does not automatically start at login.
 4. Stop and save, apply a small set of tweaks, sign out/restart if required, then use **Use for After run** to repeat the same workload. Native preference/display changes are blocked during a recording.

@@ -25,11 +25,11 @@ function runFile(file, args) {
 async function listPrograms() {
   const executable = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
   // Fixed read-only command: no executable names or user input are evaluated.
-  const command = "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); $names = @(Get-Process | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -ExpandProperty ProcessName -Unique | Sort-Object); [Console]::Out.WriteLine((ConvertTo-Json -InputObject $names -Compress))";
+  const command = "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); $names = @(Get-Process | Select-Object -ExpandProperty ProcessName -Unique | Sort-Object); [Console]::Out.WriteLine((ConvertTo-Json -InputObject $names -Compress))";
   const raw = await runFile(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command]);
   const names = JSON.parse(raw.replace(/^\uFEFF/, '').trim());
   if (!Array.isArray(names)) throw new Error('Windows returned an unreadable program list. Enter the executable name manually.');
-  return names.filter(name => typeof name === 'string').slice(0, 200).map(name => name + '.exe');
+  return names.filter(name => typeof name === 'string').slice(0, 1000).map(name => name + '.exe');
 }
 
 async function verifyCollector(executable) {

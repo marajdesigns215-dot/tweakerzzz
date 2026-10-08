@@ -25,7 +25,7 @@ async function main() {
       renderer.once('error', error => { clearTimeout(timeout); reject(error); });
       renderer.once('exit', code => { if (!output.includes('READY')) { clearTimeout(timeout); reject(new Error('D3D11 probe exited: ' + code + ' ' + errors)); } });
     });
-    const programs = await listPrograms(); assert.ok(programs.includes('TweakerzzzFrameProbe.exe'), 'Live program list must find the rendering process.');
+    const programs = await listPrograms(); assert.ok(programs.includes('TweakerzzzFrameProbe.exe'), 'Live program list must find the rendering process: ' + JSON.stringify(programs));
     capture = createCaptureManager({ directory, executable: path.join(__dirname, '..', 'vendor', 'presentmon', spec.file), snapshot: getTweakStatus });
     await capture.start({ processName: 'TweakerzzzFrameProbe.exe', seconds: 30, phase: 'before', context: 'Gaming', scenario: 'CI D3D11 WARP frame probe' });
     for (let i = 0; i < 30 && capture.isActive() && capture.status().frames < 120; i++) await delay(500);
