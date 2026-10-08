@@ -40,6 +40,8 @@ async function main() {
     assert.ok(record.hardware.cpu.name); assert.match(record.hardwareKey, /^[a-f0-9]{64}$/);
     assert.equal(record.telemetrySummary.enabled, true); assert.ok(record.telemetrySummary.cpu.samples >= 1);
     assert.equal(record.telemetrySummary.obs.renderingLagPercent, null, 'Disconnected OBS must not fabricate lag');
+    assert.equal(record.telemetrySummary.obs.enabled, false);
+    assert.ok(!record.telemetrySummary.warnings.some(w => w.includes('OBS')), 'OBS is optional, not a capture error.');
     const csv = await fs.readFile(await capture.csvPath(record.id), 'utf8');
     assert.ok(csv.includes('FrameTime') && csv.includes('TweakerzzzFrameProbe.exe'));
     assert.equal(capture.isActive(), false);

@@ -47,15 +47,21 @@ test('evidence excludes changed hardware/drivers/conditions, short runs, unknown
   }
   const records = repeated(1.1); records[1].summary.averageFps = 50; assert.equal(analyzeBenchmarks(records).findings[0].verdict, 'inconclusive');
 });
-test('changed groups stay grouped and streaming evidence requires valid OBS output/lag measurements', async () => {
+test('all workloads get FPS-only evidence without OBS; optional OBS counters add quality tradeoffs', async () => {
   const { analyzeBenchmarks } = await import('../src/lib/benchmark-evidence.ts');
   const records = repeated(1.1);
   records.filter(r => r.phase === 'after').forEach(r => { r.settings = states(true, true); r.settingsEnd = states(true, true); });
   assert.deepEqual(analyzeBenchmarks(records).findings[0].changedIds, ['game-dvr', 'game-mode']);
   records.forEach(r => { r.context = 'Streaming'; r.telemetry = true; });
-  assert.equal(analyzeBenchmarks(records).findings[0].verdict, 'inconclusive');
+  assert.equal(analyzeBenchmarks(records).findings[0].verdict, 'improved');
+  assert.equal(analyzeBenchmarks(records).findings[0].scope, 'fps-only');
+  assert.match(analyzeBenchmarks(records).findings[0].reason, /quality was not assessed/);
+  records.forEach(r => { r.context = 'Recording'; });
+  assert.equal(analyzeBenchmarks(records).findings[0].verdict, 'improved');
+  records.forEach(r => { r.context = 'Streaming'; });
   records.forEach(r => { r.telemetrySummary = { obs: { samples: 10, renderingLagPercent: 0, encodingLagPercent: 0, networkDropPercent: 0, streaming: true } }; });
   assert.equal(analyzeBenchmarks(records).findings[0].verdict, 'improved');
+  assert.equal(analyzeBenchmarks(records).findings[0].scope, 'fps-and-obs');
   records[3].telemetrySummary.obs.encodingLagPercent = 5;
   assert.equal(analyzeBenchmarks(records).findings[0].verdict, 'inconclusive');
 });

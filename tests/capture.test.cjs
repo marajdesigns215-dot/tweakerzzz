@@ -75,6 +75,18 @@ test('recording lifetime saves raw CSV and snapshot, stops only its own session 
     await assert.rejects(h.manager.csvPath(state.id), /not found/);
   } finally { await h.cleanup(); }
 });
+test('Gaming, Streaming, and Recording capture FPS without an OBS client or connection', async () => {
+  const h = await harness();
+  try {
+    for (const context of ['Gaming', 'Streaming', 'Recording']) {
+      await h.manager.start({ ...options, context });
+      h.children.at(-1).stdout.write(header + row(10).repeat(100));
+      const result = await h.manager.stop();
+      assert.equal(result.status, 'completed'); assert.ok(result.summary.averageFps > 0); assert.equal(result.context, context);
+    }
+    assert.equal((await h.manager.list()).length, 3);
+  } finally { await h.cleanup(); }
+});
 test('permission failures and interrupted runs are retained as unsuccessful recordings', async () => {
   const h = await harness();
   try {

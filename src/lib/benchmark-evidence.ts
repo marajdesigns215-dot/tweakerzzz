@@ -26,9 +26,9 @@ export function evidenceExclusion(record: CaptureRecord): string | null {
 }
 export function experimentKey(record: CaptureRecord): string {
   const b = record.benchmark!;
-  return JSON.stringify([normalized(record.processName), record.context, normalized(record.scenario), record.seconds, !!record.telemetry, record.hardwareKey, record.collector, ...['experiment', 'resolution', 'graphics', 'gameBuild'].map(key => normalized(b[key as 'experiment'])), b.fpsCap]);
+  return JSON.stringify([normalized(record.processName), record.context, normalized(record.scenario), record.seconds, !!record.telemetry, record.telemetrySummary?.obs.enabled ?? !!record.telemetrySummary?.obs.samples, record.hardwareKey, record.collector, ...['experiment', 'resolution', 'graphics', 'gameBuild'].map(key => normalized(b[key as 'experiment'])), b.fpsCap]);
 }
-export interface BenchmarkEvidence { key: string; experiment: string; processName: string; context: string; hardwareKey: string; changedIds: string[]; pairs: number; verdict: 'improved' | 'regressed' | 'inconclusive' | 'collect-more'; averageChange: number; lowChange: number; frameTimeChange: number; beforeIds: string[]; afterIds: string[]; reason: string }
+export interface BenchmarkEvidence { scope: 'fps-only' | 'fps-and-obs'; key: string; experiment: string; processName: string; context: string; hardwareKey: string; changedIds: string[]; pairs: number; verdict: 'improved' | 'regressed' | 'inconclusive' | 'collect-more'; averageChange: number; lowChange: number; frameTimeChange: number; beforeIds: string[]; afterIds: string[]; reason: string }
 export function analyzeBenchmarks(records: CaptureRecord[]) {
   const exclusions = new Map<string, number>(), experiments = new Map<string, CaptureRecord[]>();
   const seen = new Set<string>();
@@ -73,12 +73,12 @@ export function analyzeBenchmarks(records: CaptureRecord[]) {
     let verdict: BenchmarkEvidence['verdict'] = 'inconclusive', reason = 'Changes are small or inconsistent. Keep testing before choosing a configuration.';
     if (group.before.length < 3) { verdict = 'collect-more'; reason = 'Collect at least three independent Before/After pairs with the same two configurations. A baseline is never reused.'; }
     else if (noisy) reason = 'Run-to-run variation is high (over 10% average FPS or 15% lows). Improve repeatability before choosing settings.';
-    else if (obsMissing) reason = 'Gaming results cannot establish streaming/recording quality without valid OBS lag counters and an active matching output in every run. Enable telemetry and connect OBS.';
     else if (obsWorse) reason = 'OBS lag or stream drops worsened by over one percentage point in at least one pair. Review the FPS/creation tradeoff.';
     else if (((averageChange >= 3 && averages.every(v => v > 0)) || (lowChange >= 3 && lows.every(v => v > 0))) && averages.every(v => v >= -2) && lows.every(v => v >= -2) && times.every(v => v <= 2)) { verdict = 'improved'; reason = 'Repeated runs favor the After configuration. Consider keeping this tested configuration, then verify it in actual play.'; }
     else if ((averageChange <= -3 && averages.every(v => v < 0)) || (lowChange <= -5 && lows.every(v => v < 0)) || (frameTimeChange >= 5 && times.every(v => v > 0))) { verdict = 'regressed'; reason = 'Repeated runs show a performance regression. Review the tested changes and consider restoring their backup before retesting.'; }
     const first = group.before[0];
-    findings.push({ key, experiment: first.benchmark!.experiment, processName: first.processName, context: first.context, hardwareKey: first.hardwareKey!, changedIds: group.changed, pairs: group.before.length, verdict, averageChange, lowChange, frameTimeChange, beforeIds: group.before.map(r => r.id), afterIds: group.after.map(r => r.id), reason });
+    if (obsMissing) reason += ' This is an FPS-only finding. Stream/recording quality was not assessed because matching output/lag measurements were unavailable; OBS is optional.';
+    findings.push({ key, experiment: first.benchmark!.experiment, processName: first.processName, context: first.context, scope: needsObs && !obsMissing ? 'fps-and-obs' : 'fps-only', hardwareKey: first.hardwareKey!, changedIds: group.changed, pairs: group.before.length, verdict, averageChange, lowChange, frameTimeChange, beforeIds: group.before.map(r => r.id), afterIds: group.after.map(r => r.id), reason });
   }
   return { findings, exclusions: [...exclusions].map(([reason, count]) => ({ reason, count })) };
 }

@@ -28,6 +28,7 @@ function parseCpuTemperature(raw) {
 }
 function createTelemetry({ hardware, obs, host = os, environment = process.env, exists = fs.existsSync, execute = (file, args) => new Promise((resolve, reject) => execFile(file, args, { windowsHide: true, shell: false, timeout: 3000, maxBuffer: 64000 }, (error, stdout) => error ? reject(new Error('GPU telemetry unavailable.')) : resolve(stdout))) }) {
   let previous = cpuTimes(host), running = true, inFlight = null, timer;
+  const obsEnabled = !!obs?.status().connected;
   const samples = [], gpuSamples = [], temperaturesCpu = [], warnings = new Set(); let firstObs, lastObs, obsInvalid = false, obsSamples = 0, cpuProviderAvailable = true, cpuSensor = null;
   const gpuName = hardware?.gpu.name;
   const smi = gpuName && /NVIDIA|GeForce/i.test(gpuName) ? [path.join(environment.SystemRoot || 'C:\\Windows', 'System32', 'nvidia-smi.exe'), path.join(environment.ProgramFiles || 'C:\\Program Files', 'NVIDIA Corporation', 'NVSMI', 'nvidia-smi.exe')].find(exists) : null;
@@ -45,19 +46,19 @@ function createTelemetry({ hardware, obs, host = os, environment = process.env, 
       const total = host.totalmem(); samples.push({ cpu, memory: total > 0 ? (1 - host.freemem() / total) * 100 : null });
       const results = await Promise.allSettled([
         smi ? execute(smi, ['--query-gpu=name,utilization.gpu,temperature.gpu,memory.used,memory.total', '--format=csv,noheader,nounits']).then(raw => parseGpu(raw, gpuName)) : Promise.resolve(null),
-        obs?.status().connected ? obs.sample() : Promise.reject(new Error('OBS statistics were unavailable during this run.')),
+        obsEnabled ? (obs?.status().connected ? obs.sample() : Promise.reject(new Error('OBS disconnected during this run.'))) : Promise.resolve(null),
         cpuProviderAvailable ? execute(powershell, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', cpuQuery]).then(parseCpuTemperature) : Promise.resolve(null),
       ]);
       if (results[0].status === 'fulfilled' && results[0].value) gpuSamples.push(results[0].value);
       else if (smi) warnings.add('A GPU telemetry sample was unavailable.');
       if (results[2].status === 'fulfilled' && results[2].value) { temperaturesCpu.push(results[2].value.value); cpuSensor = results[2].value.name; }
       else { cpuProviderAvailable = false; warnings.add('CPU package temperature unavailable. Optional: run Libre Hardware Monitor with its WMI provider before the recording. No sensor value is estimated.'); }
-      if (results[1].status === 'fulfilled') {
+      if (obsEnabled && results[1].status === 'fulfilled') {
         const value = results[1].value;
         if (value.recordingPaused || value.streamReconnecting) obsInvalid = true;
         if (lastObs && (value.streaming !== lastObs.streaming || value.recording !== lastObs.recording || ['renderSkipped','renderTotal','encodeSkipped','encodeTotal','streamSkipped','streamTotal'].some(key => value[key] != null && lastObs[key] != null && value[key] < lastObs[key]))) obsInvalid = true;
         firstObs ||= value; lastObs = value; obsSamples++;
-      } else { warnings.add('OBS statistics were unavailable for one or more samples.'); obsInvalid = true; }
+      } else if (obsEnabled) { warnings.add('OBS statistics were unavailable for one or more samples.'); obsInvalid = true; }
     })().finally(() => { inFlight = null; });
     return inFlight;
   }
@@ -69,7 +70,7 @@ function createTelemetry({ hardware, obs, host = os, environment = process.env, 
     if (obsInvalid) warnings.add('OBS counters reset, its output mode changed/paused, its stream reconnected, or its connection was interrupted. Lag percentages are unavailable for this run.');
     const temperatures = gpuSamples.map(value => value.temperature).filter(value => value != null);
     const gpu = { ...stats(gpuSamples.map(value => value.utilization)), name: gpuName ?? 'Unknown GPU', peakTemperatureC: temperatures.length ? Math.max(...temperatures) : null };
-    return { enabled: true, intervalSeconds: 5, cpu: stats(samples.map(value => value.cpu)), memory: stats(samples.map(value => value.memory)), gpu, cpuTemperatureC: temperaturesCpu.length ? Math.max(...temperaturesCpu) : null, cpuTemperatureSensor: cpuSensor, obs: { ...obsDelta(firstObs, lastObs, obsInvalid), samples: obsSamples }, warnings: [...warnings] };
+    return { enabled: true, intervalSeconds: 5, cpu: stats(samples.map(value => value.cpu)), memory: stats(samples.map(value => value.memory)), gpu, cpuTemperatureC: temperaturesCpu.length ? Math.max(...temperaturesCpu) : null, cpuTemperatureSensor: cpuSensor, obs: { ...obsDelta(firstObs, lastObs, obsInvalid), enabled: obsEnabled, samples: obsSamples }, warnings: [...warnings] };
   } };
 }
 module.exports = { cpuTimes, parseGpu, parseCpuTemperature, obsDelta, createTelemetry };

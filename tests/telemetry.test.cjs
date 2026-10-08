@@ -47,6 +47,8 @@ test('telemetry failures do not invent CPU/GPU temperatures or OBS lag', async (
   assert.equal(result.cpu.averagePercent, 50); assert.equal(result.memory.peakPercent, 80);
   assert.equal(result.gpu.averagePercent, null); assert.equal(result.gpu.peakTemperatureC, null); assert.equal(result.cpuTemperatureC, null); assert.equal(result.obs.encodingLagPercent, null);
   assert.ok(result.warnings.some(w => w.includes('CPU package temperature unavailable')));
+  assert.equal(result.obs.enabled, false);
+  assert.ok(!result.warnings.some(w => w.includes('OBS')), 'An optional disconnected OBS session is not a telemetry failure.');
 });
 
 
