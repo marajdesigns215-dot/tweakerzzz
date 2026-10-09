@@ -1,9 +1,10 @@
 import type { DriverReport, DriverUpdateOffers, DriverChange } from '../types';
 export const hardwareCategories = ['Graphics', 'Processor', 'Motherboard', 'BIOS / UEFI', 'Peripherals', 'Audio'];
-const classes = ['DISPLAY', 'PROCESSOR', 'MEDIA', 'AUDIOENDPOINT', 'KEYBOARD', 'MOUSE', 'CAMERA', 'IMAGE'];
+const classes = ['DISPLAY', 'PROCESSOR', 'MEDIA', 'AUDIOENDPOINT', 'HIDCLASS', 'KEYBOARD', 'MOUSE', 'CAMERA', 'IMAGE'];
 export const visibleParts = (report: DriverReport) => (report.components || []).filter(c => hardwareCategories.includes(c.category));
 export function visibleChange(change: DriverChange, report: DriverReport | null) {
-  return hardwareCategories.includes(change.category) || classes.includes(change.category) || !!report && visibleParts(report).some(c => c.deviceIds.includes(change.deviceId));
+  const platform = change.category === 'SYSTEM' && /^(PCI|ACPI)\\/i.test(change.instanceId) && /chipset|smbus|management engine|serial io|gpio|platform|\bpsp\b|dynamic tuning/i.test(change.name);
+  return platform || hardwareCategories.includes(change.category) || classes.includes(change.category) || !!report && visibleParts(report).some(c => c.deviceIds.includes(change.deviceId));
 }
 export function visibleOffers(offers: DriverUpdateOffers | null, report: DriverReport | null) {
   if (!offers) return offers;

@@ -42,9 +42,10 @@ function hardwareComponents(report, raw) {
   for (const [i, peripheral] of (report.hardware?.peripherals || []).entries()) {
     if (peripheral.type === 'Audio') continue; // The actual audio driver is shown above.
     const usb = /^([A-F0-9]{4}):([A-F0-9]{4})$/i.exec(peripheral.usbId || '');
-    const matches = report.devices.filter(d => d.present !== false && ['HIDCLASS', 'KEYBOARD', 'MOUSE', 'CAMERA', 'IMAGE', 'USB', 'MEDIA'].includes(d.category) && (usb
+    const candidates = report.devices.filter(d => d.present !== false && ['HIDCLASS', 'KEYBOARD', 'MOUSE', 'CAMERA', 'IMAGE', 'USB', 'MEDIA'].includes(d.category) && (usb
       ? [d.instanceId, ...d.hardwareIds].some(id => id.toUpperCase().includes('VID_' + usb[1].toUpperCase()) && id.toUpperCase().includes('PID_' + usb[2].toUpperCase()))
       : [peripheral.name, ...(peripheral.interfaces || [])].some(name => name && name.toUpperCase() === d.name.toUpperCase())));
+    const matches = usb || candidates.length === 1 ? candidates : [];
     const guide = report.recommendations.find(r => r.category === 'Peripherals' && r.device === peripheral.name);
     add('peripheral:' + (peripheral.usbId || peripheral.name) + ':' + i, 'Peripherals', peripheral.name,
       { Type: peripheral.type, Connection: peripheral.connection, 'Installed driver': [...new Set(matches.map(d => d.version).filter(Boolean))].join(' · '), 'Driver provider': [...new Set(matches.map(d => d.provider).filter(Boolean))].join(' · ') }, guide?.source,

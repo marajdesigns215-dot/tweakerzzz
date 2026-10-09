@@ -81,3 +81,18 @@ test('component scan includes different platform/peripheral vendors without show
     assert.deepEqual(cards.find(c=>c.category==='Motherboard').deviceIds,['chip']);assert.deepEqual(cards.find(c=>c.category==='Processor').deviceIds,['cpu']);assert.deepEqual(cards.find(c=>c.category==='Peripherals').deviceIds,['mouse']);assert.equal(cards.find(c=>c.category==='BIOS / UEFI').values['BIOS version'],'F25');assert.ok(!cards.some(c=>c.name==='Microsoft software bus'||c.category==='Network'));
   }
 });
+
+test('ambiguous generic peripheral names do not associate another physical device’s driver',()=>{
+  const {hardwareComponents}=require('../electron/hardware-components.cjs');
+  const base={...device,name:'HID-compliant mouse',category:'MOUSE',present:true};
+  const r={devices:[{...base,id:'one'},{...base,id:'two'}],recommendations:[],board:{},computer:{},bios:{},hardware:{peripherals:[{name:'HID-compliant mouse',type:'Mouse'}]}};
+  const card=hardwareComponents(r,{}).find(c=>c.category==='Peripherals');assert.deepEqual(card.deviceIds,[]);assert.equal(card.values['Installed driver'],'');
+});
+test('history keeps removed platform/peripheral records visible while hiding unrelated Windows devices',()=>{
+  const {visibleChange}=require('../src/lib/driver-visibility.ts');
+  const change=(category,name,instanceId)=>({category,name,instanceId,deviceId:'no-longer-in-current-scan'});
+  assert.equal(visibleChange(change('SYSTEM','Intel SMBus controller','PCI\\OLD'),null),true);
+  assert.equal(visibleChange(change('HIDCLASS','USB mouse','HID\\OLD'),null),true);
+  assert.equal(visibleChange(change('SYSTEM','Microsoft software bus','ROOT\\OLD'),null),false);
+  assert.equal(visibleChange(change('NET','Virtual network adapter','ROOT\\OLD'),null),false);
+});
