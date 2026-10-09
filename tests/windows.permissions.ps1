@@ -61,7 +61,7 @@ function Read-FixtureValues {
     return ConvertTo-Json -InputObject @($values) -Compress
 }
 function Set-FixtureAcl($sddl, $deny = $null) {
-    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($protected, [Microsoft.Win32.RegistryKeyPermissionCheck]::Default, ([Security.AccessControl.RegistryRights]::ReadPermissions -bor [Security.AccessControl.RegistryRights]::ChangePermissions))
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($protected, [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree, ([Security.AccessControl.RegistryRights]::ReadPermissions -bor [Security.AccessControl.RegistryRights]::ChangePermissions))
     try {
         $acl = [Security.AccessControl.RegistrySecurity]::new()
         $acl.SetSecurityDescriptorSddlForm($sddl, [Security.AccessControl.AccessControlSections]::Access)
@@ -137,7 +137,7 @@ try {
         $script:denialInjected = $true
         $testControl = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('__DESKTOP__', $true)
         try { $testControl.SetValue('MenuShowDelay', '777', [Microsoft.Win32.RegistryValueKind]::String) } finally { $testControl.Dispose() }
-        $testKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('__PROTECTED__', $true)
+        $testKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('__PROTECTED__', [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree, ([Security.AccessControl.RegistryRights]::ReadPermissions -bor [Security.AccessControl.RegistryRights]::ChangePermissions))
         try {
             $acl = $testKey.GetAccessControl()
             $acl.AddAccessRule([Security.AccessControl.RegistryAccessRule]::new([Security.Principal.WindowsIdentity]::GetCurrent().User, [Security.AccessControl.RegistryRights]::SetValue, [Security.AccessControl.AccessControlType]::Deny))

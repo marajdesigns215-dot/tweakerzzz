@@ -74,7 +74,9 @@ function Write-Preference($specification) {
 }
 
 function Open-PreferenceWriter($path) {
-    return [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($path, [Microsoft.Win32.RegistryKeyPermissionCheck]::Default, [Security.AccessControl.RegistryRights]::SetValue)
+    # ReadWriteSubTree marks the .NET handle writable; the explicit rights
+    # argument still limits the Windows handle to SetValue only.
+    return [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($path, [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree, [Security.AccessControl.RegistryRights]::SetValue)
 }
 
 function Assert-PreferenceWritable($specification) {
