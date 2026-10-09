@@ -13,6 +13,10 @@ const esc=s=>s.replaceAll('%','%25').replaceAll('\n','%0A').replaceAll('\r','%0D
   assert.equal(process.platform,'win32');
   const report={hardware:{os:{name:'Microsoft Windows 11 Pro'}},computer:{portable:false},board:{manufacturer:'Micro-Star International Co., Ltd.',product:'B550M PRO-VDH WIFI (MS-7C95)',version:'1.0'}};
   const checks=await Promise.allSettled([(async()=>{
+    const url='https://www.msi.com/api/v1/product/support/panel?product=B550M-PRO-VDH-WIFI&type=bios';
+    const body=await read(url);
+    console.log('::notice title=MSI catalog schema::'+esc(body.slice(0,6500)));
+  })(), (async()=>{
   const graphics=await lookup.nvidia({name:'NVIDIA GeForce RTX 4060',values:{'Installed driver':'32.0.16.1742'}},report,'game-ready');
   assert.match(graphics.version,/^\d{3,4}\.\d{2}$/);assert.equal(graphics.installed,'617.42');assert.match(graphics.match,/GeForce RTX 4060/);
   evidence.push({provider:'NVIDIA',...graphics});
