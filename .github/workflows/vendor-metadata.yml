@@ -1,0 +1,25 @@
+name: Read-only vendor metadata validation
+on:
+  push:
+    branches: [main]
+    paths: ['tests/windows.vendor-metadata.cjs', '.github/workflows/vendor-metadata.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  providers:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node tests/windows.vendor-metadata.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vendor-metadata-evidence
+          path: release/qa/vendor-metadata.json
+          retention-days: 7
