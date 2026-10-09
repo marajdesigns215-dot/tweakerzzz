@@ -17,7 +17,7 @@ function validateRecord(record, file, validateOptions) {
   if (record.endedAt != null && !date(record.endedAt)) fail();
   if (record.targetCheckedAt !== undefined && !date(record.targetCheckedAt)) fail();
   if (record.reanalyzedAt !== undefined && !date(record.reanalyzedAt)) fail();
-  if (record.captureMethod !== undefined && record.captureMethod !== 'presentmon-display-v2') fail();
+  if (record.captureMethod !== undefined && !['presentmon-display-v2', 'presentmon-application'].includes(record.captureMethod)) fail();
   if (record.settingsEnd != null && !settings(record.settingsEnd)) fail();
   if (record.hardwareKey != null && !/^[a-f0-9]{64}$/.test(record.hardwareKey)) fail();
   for (const key of ['stopReason', 'collectorWarnings']) if (record[key] != null && !text(record[key], 16000)) fail();

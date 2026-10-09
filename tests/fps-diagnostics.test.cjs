@@ -77,3 +77,10 @@ test('old or suspect calculations cannot drive recommendations or be compared ag
   assert.equal(compareCaptures(old, fresh), null);
   assert.ok(captureQualityIssues({ ...fresh, summary: { ...fresh.summary, sampledSeconds: 80 } }).some(s => s.includes('exceeds')));
 });
+
+test('an unknown frame type is not falsely identified as generated', () => {
+  const m = new FrameMetrics('game.exe');
+  m.push('Application,ProcessID,SwapChainAddress,CPUStartTime,FrameTime,FrameType\n');
+  m.push('game.exe,1,0x1,0,5,Unknown\ngame.exe,1,0x1,5,5,Unknown\n');
+  assert.equal(m.summary().averageFps, 200); assert.equal(m.summary().generatedFrameRows, 0);
+});

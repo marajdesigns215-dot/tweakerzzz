@@ -128,9 +128,9 @@ test('recording lifetime saves raw CSV and snapshot, stops only its own session 
     assert.equal(h.manager.status().active, false);
     assert.equal(h.calls[0].options.shell, false);
     assert.ok(h.calls[0].args.includes('--no_track_input'));
-    assert.ok(h.calls[0].args.includes('--track_frame_type'));
-    assert.ok(!h.calls[0].args.includes('--no_track_display'));
-    assert.equal(result.captureMethod, 'presentmon-display-v2');
+    assert.ok(!h.calls[0].args.includes('--track_frame_type'));
+    assert.ok(h.calls[0].args.includes('--no_track_display'));
+    assert.equal(result.captureMethod, 'presentmon-application');
     assert.deepEqual(h.stopped[0].args, ['--session_name', 'Tweakerzzz-' + state.id, '--terminate_existing_session']);
     const history = await h.manager.list(); assert.equal(history.length, 1); assert.deepEqual(history[0].settings.tweaks, []);
     assert.ok((await fs.readFile(await h.manager.csvPath(state.id), 'utf8')).endsWith(row(20)));
@@ -244,5 +244,18 @@ test('saved CSV recalculation preserves original bytes and metadata, survives re
     assert.equal(await fs.readFile(metadata, 'utf8'), saved);
     await assert.rejects(h.manager.reanalyze('../../bad'), /Invalid recording/);
     await h.manager.remove(original.id); assert.deepEqual(await fs.readdir(h.directory), []);
+  } finally { await h.cleanup(); }
+});
+
+test('optional display tracking is explicit and provides an actionable fallback without invented FPS', async () => {
+  const h = await harness();
+  try {
+    await assert.rejects(h.manager.start({ ...options, displayTracking: 'on' }), /Invalid display/);
+    await h.manager.start({ ...options, displayTracking: true });
+    assert.ok(h.calls[0].args.includes('--track_frame_type')); assert.ok(!h.calls[0].args.includes('--no_track_display'));
+    h.children[0].emit('close', 0);
+    for (let i = 0; i < 100 && h.manager.isActive(); i++) await new Promise(resolve => setTimeout(resolve, 5));
+    const [record] = await h.manager.list(); assert.equal(record.status, 'failed'); assert.equal(record.summary, null);
+    assert.match(record.error, /Turn off Collect displayed FPS/); assert.equal(record.captureMethod, 'presentmon-display-v2');
   } finally { await h.cleanup(); }
 });

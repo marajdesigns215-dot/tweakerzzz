@@ -5,7 +5,7 @@ export function compareCaptures(before: CaptureRecord, after: CaptureRecord) {
   if (before.id === after.id || before.phase !== 'before' || after.phase !== 'after') return null;
   if (before.status !== 'completed' || after.status !== 'completed' || !before.summary || !after.summary) return null;
   if (before.processName.toLowerCase() !== after.processName.toLowerCase() || before.context !== after.context || before.scenario.trim().toLowerCase() !== after.scenario.trim().toLowerCase()) return null;
-  if ((before.summary.metricsVersion ?? 1) !== (after.summary.metricsVersion ?? 1) || before.summary.measurementBasis !== after.summary.measurementBasis || before.captureMethod !== after.captureMethod) return null;
+  if ((before.summary.metricsVersion ?? 1) !== (after.summary.metricsVersion ?? 1) || before.summary.measurementBasis !== after.summary.measurementBasis || (before.captureMethod ?? 'presentmon-application') !== (after.captureMethod ?? 'presentmon-application')) return null;
   if (before.summary.metricsVersion === 2 && (captureQualityIssues(before).length || captureQualityIssues(after).length)) return null;
   if ((before.hardwareKey ?? null) !== (after.hardwareKey ?? null)) return null;
   if (!!before.telemetry !== !!after.telemetry) return null;

@@ -17,6 +17,7 @@ function validateCapture(input) {
   if (!Number.isInteger(input.seconds) || input.seconds < 30 || input.seconds > 3600) throw new Error('Choose a recording length between 30 seconds and 60 minutes.');
   if (typeof input.scenario !== 'string' || !input.scenario.trim() || input.scenario.length > 160 || /[\x00-\x1f]/.test(input.scenario)) throw new Error('Name the repeatable scene and graphics settings (up to 160 characters).');
   const extra = {};
+  if (input.displayTracking !== undefined) { if (typeof input.displayTracking !== 'boolean') throw new Error('Invalid display tracking choice.'); extra.displayTracking = input.displayTracking; }
   if (input.telemetry !== undefined) { if (typeof input.telemetry !== 'boolean') throw new Error('Invalid telemetry choice.'); extra.telemetry = input.telemetry; }
   if (input.benchmark !== undefined) {
     const b = input.benchmark;
@@ -122,11 +123,11 @@ function createCaptureManager({ directory, executable, snapshot, readHardware = 
       const hardware = hardwareResult ? { cpu: hardwareResult.cpu, gpu: hardwareResult.gpu, memory: hardwareResult.memory, os: hardwareResult.os, storage: hardwareResult.storage, scannedAt: hardwareResult.scannedAt, warnings: hardwareResult.warnings || [], peripherals: [] } : null;
       const hardwareKey = hardware ? crypto.createHash('sha256').update(JSON.stringify([hardware.cpu, hardware.gpu, hardware.memory, hardware.os])).digest('hex') : null;
       const id = crypto.randomBytes(16).toString('hex');
-      const record = { version: 1, id, ...options, targetCheckedAt, captureMethod: 'presentmon-display-v2', startedAt: new Date().toISOString(), status: 'recording', collector: 'PresentMon ' + spec.version, settings, hardware, hardwareKey, summary: null, error: '' };
+      const record = { version: 1, id, ...options, targetCheckedAt, captureMethod: options.displayTracking ? 'presentmon-display-v2' : 'presentmon-application', startedAt: new Date().toISOString(), status: 'recording', collector: 'PresentMon ' + spec.version, settings, hardware, hardwareKey, summary: null, error: '' };
       await save(record);
       const metrics = new FrameMetrics(options.processName);
       const output = fs.createWriteStream(csvPath(id), { flags: 'wx' });
-      const child = launch(executable, ['--process_name', options.processName, '--output_stdout', '--no_console_stats', '--no_track_gpu', '--no_track_input', '--track_frame_type', '--session_name', 'Tweakerzzz-' + id, '--timed', String(options.seconds), '--terminate_after_timed'], { windowsHide: true, shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
+      const child = launch(executable, ['--process_name', options.processName, '--output_stdout', '--no_console_stats', '--no_track_gpu', '--no_track_input', ...(options.displayTracking ? ['--track_frame_type'] : ['--no_track_display']), '--session_name', 'Tweakerzzz-' + id, '--timed', String(options.seconds), '--terminate_after_timed'], { windowsHide: true, shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
       let resolveDone;
       const done = new Promise(resolve => { resolveDone = resolve; });
       const active = { record, metrics, child, output, done, stopping: false, error: '', stderr: '', bytes: 0 };
@@ -145,7 +146,7 @@ function createCaptureManager({ directory, executable, snapshot, readHardware = 
           record.telemetrySummary = telemetry ? await telemetry.stop() : null;
           try { record.settingsEnd = await snapshot(); } catch { record.settingsEnd = null; }
           record.status = code === 0 && !active.error && record.summary ? 'completed' : 'failed';
-          record.error = active.error || (code !== 0 ? (/access denied|privilege|Performance Log Users/i.test(active.stderr) ? 'Windows denied FPS tracing. Close Tweakerzzz, right-click its shortcut, choose Run as administrator for the same Windows account, and try again.' : 'PresentMon exited unexpectedly. ' + active.stderr.trim().slice(0, 1200)) : !record.summary ? `No usable frames were captured from ${options.processName}. This process was found before recording. Keep the game running and rendering, then try a short recording. Check Saved tweak states & collector notes for tracing errors. If the game runs elevated, try Tweakerzzz as administrator under the same Windows account. Export the summary and CSV if it still fails; this result alone does not establish an anti-cheat restriction.` : '');
+          record.error = active.error || (code !== 0 ? (/access denied|privilege|Performance Log Users/i.test(active.stderr) ? 'Windows denied FPS tracing. Close Tweakerzzz, right-click its shortcut, choose Run as administrator for the same Windows account, and try again.' : 'PresentMon exited unexpectedly. ' + active.stderr.trim().slice(0, 1200)) : !record.summary && options.displayTracking ? 'Display tracking returned no usable application frames. This optional mode may be unavailable for this game or display. Turn off Collect displayed FPS and repeat the recording. No FPS values were invented.' : !record.summary ? `No usable frames were captured from ${options.processName}. This process was found before recording. Keep the game running and rendering, then try a short recording. Check Saved tweak states & collector notes for tracing errors. If the game runs elevated, try Tweakerzzz as administrator under the same Windows account. Export the summary and CSV if it still fails; this result alone does not establish an anti-cheat restriction.` : '');
           record.collectorWarnings = active.stderr.trim().slice(0, 2000);
           record.stopReason = active.reason || 'Time limit reached';
           await save(record);

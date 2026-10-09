@@ -105,7 +105,7 @@ class FrameMetrics {
       } else if (display == null && fields[h.DisplayedTime] !== 'NA') stream.displayUnknown++;
     }
     const type = fields[h.FrameType];
-    if (type && !['Application', 'NotSet', 'Repeated'].includes(type)) { stream.generated++; return; }
+    if (['Intel XeSS-FG', 'AMD AFMF'].includes(type)) { stream.generated++; return; }
     if (ms <= 0) { stream.zeroRows++; return; }
     if (h.CPUStartTime !== undefined) {
       if (start == null) { stream.missingTimestamps++; this.invalid++; return; }

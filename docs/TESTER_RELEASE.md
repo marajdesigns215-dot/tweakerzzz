@@ -4,7 +4,7 @@ Download **Tweakerzzz-Setup-0.6.3-x64.exe** below. Quit the old app including it
 
 **Correct existing reports:** In FPS recorder, choose **Recalculate saved CSV** on an older recording. Original CSVs are preserved, and the original report is backed up before replacement. Missing display or hardware measurements cannot be reconstructed.
 
-**Expanded reports:** Highest/lowest FPS over complete windows of at least one second, average FPS, 1%/0.1% lows, P95/P99 and worst frame time, variability, long-frame counts and an interactive timeline. Displayed FPS is collected and shown separately on new recordings where supported. Diagnostics suggest reviewable tests without claiming a proven bottleneck or applying tweaks automatically. Optional telemetry adds busiest-logical-CPU load, available RAM and supported NVIDIA GPU-memory allocation. OBS is optional.
+**Expanded reports:** Highest/lowest FPS over complete windows of at least one second, average FPS, 1%/0.1% lows, P95/P99 and worst frame time, variability, long-frame counts and an interactive timeline. **Collect displayed FPS** is an optional compatibility test, off by default. Where supported it is reported separately; if that mode returns no frames, turn it off and retry. The default application FPS recorder does not depend on display tracking. Diagnostics suggest reviewable tests without claiming a proven bottleneck or applying tweaks automatically. Optional telemetry adds busiest-logical-CPU load, available RAM and supported NVIDIA GPU-memory allocation. OBS is optional.
 
 **Comparisons:** Capture matching new Before and After runs. Calculation versions and collector modes must match. Older or suspect measurements are excluded from repeated-run recommendations until valid recalculation.
 

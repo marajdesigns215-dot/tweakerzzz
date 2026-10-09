@@ -4,7 +4,7 @@ Tweakerzzz 0.6.3 fixes inflated FPS from repeated frame-start rows and expands p
 - Older recordings show a warning and offer Recalculate saved CSV. Original CSVs and an original-report backup are preserved.
 - Reports add highest/lowest FPS over complete windows of at least one second, average FPS, 1%/0.1% lows, P95/P99 and worst frame time, variability, and long-frame counts.
 - Explore an interactive FPS timeline and review measured diagnostic signals with suggested tests.
-- New captures collect displayed FPS separately. It can differ from application cadence; unsupported display data stays unavailable.
+- Collect displayed FPS is an optional compatibility test, off by default; supported captures show it separately. Some environments return no data in that mode; turn it off and retry. Unsupported display data stays unavailable.
 - Optional telemetry adds busiest-logical-CPU load, minimum available RAM and supported NVIDIA GPU-memory use. OBS remains optional.
 - Comparisons reject mixed calculation/collector versions; older or suspect measurements cannot drive repeated-run recommendations.
 

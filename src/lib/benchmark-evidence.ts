@@ -28,7 +28,7 @@ export function evidenceExclusion(record: CaptureRecord): string | null {
 }
 export function experimentKey(record: CaptureRecord): string {
   const b = record.benchmark!;
-  return JSON.stringify([normalized(record.processName), record.context, normalized(record.scenario), record.seconds, !!record.telemetry, record.telemetrySummary?.obs.enabled ?? !!record.telemetrySummary?.obs.samples, record.hardwareKey, record.collector, record.captureMethod ?? 'legacy', record.summary?.metricsVersion, record.summary?.measurementBasis, ...['experiment', 'resolution', 'graphics', 'gameBuild'].map(key => normalized(b[key as 'experiment'])), b.fpsCap]);
+  return JSON.stringify([normalized(record.processName), record.context, normalized(record.scenario), record.seconds, !!record.telemetry, record.telemetrySummary?.obs.enabled ?? !!record.telemetrySummary?.obs.samples, record.hardwareKey, record.collector, record.captureMethod ?? 'presentmon-application', record.summary?.metricsVersion, record.summary?.measurementBasis, ...['experiment', 'resolution', 'graphics', 'gameBuild'].map(key => normalized(b[key as 'experiment'])), b.fpsCap]);
 }
 export interface BenchmarkEvidence { scope: 'fps-only' | 'fps-and-obs'; key: string; experiment: string; processName: string; context: string; hardwareKey: string; changedIds: string[]; pairs: number; verdict: 'improved' | 'regressed' | 'inconclusive' | 'collect-more'; averageChange: number; lowChange: number; frameTimeChange: number; beforeIds: string[]; afterIds: string[]; reason: string }
 export function analyzeBenchmarks(records: CaptureRecord[]) {

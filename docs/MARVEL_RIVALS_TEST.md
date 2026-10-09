@@ -2,7 +2,7 @@
 
 The automated Windows test uses a Direct3D renderer to verify real frame events. The installed-app test checks real process search/selection. Neither runs Marvel Rivals, so a passing release workflow must not be described as live Marvel Rivals verification.
 
-A supplied v0.6.2 Marvel Rivals CSV confirmed successful frame-event collection but also revealed repeated frame-start rows that inflated reported FPS. Version 0.6.3 corrects the timestamp calculation. Offline reanalysis validates that fix against the supplied data; a fresh matched game/counter capture is still needed for the new collector mode.
+A supplied v0.6.2 Marvel Rivals CSV confirmed successful frame-event collection but also revealed repeated frame-start rows that inflated reported FPS. Version 0.6.3 corrects the timestamp calculation. Offline reanalysis validates that fix against the supplied data; a fresh matched game/counter capture is still useful for verification on a gaming PC. Keep the optional display-tracking compatibility test off for the initial check.
 
 ## Check the installed game
 

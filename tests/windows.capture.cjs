@@ -62,9 +62,10 @@ async function main() {
     assert.ok(csv.includes('FrameTime') && csv.includes('TweakerzzzFrameProbe.exe'));
     assert.equal(record.summary.metricsVersion, 2);
     assert.equal(record.summary.measurementBasis, 'cpu-start-interval');
-    assert.equal(record.summary.displayTracking, true);
+    assert.equal(record.summary.displayTracking, false);
+    assert.equal(record.captureMethod, 'presentmon-application');
     assert.deepEqual(record.summary.qualityIssues, []);
-    assert.ok(csv.includes('DisplayedTime') && csv.includes('CPUStartTime'));
+    assert.ok(!csv.includes('DisplayedTime') && csv.includes('CPUStartTime'));
     assert.ok(record.summary.highestFps > 0 && record.summary.highestFps >= record.summary.lowestFps);
     assert.ok(probeTimes.length > 100);
     const probeFps = (probeTimes.length - 1) * 1000 / (probeTimes.at(-1) - probeTimes[0]);
@@ -75,6 +76,18 @@ async function main() {
     const recalculated = await capture.reanalyze(record.id);
     assert.deepEqual(recalculated.summary, record.summary, 'Live and saved CSV analyses must agree');
     assert.equal(capture.isActive(), false);
+    await capture.start({ processName: 'TweakerzzzFrameProbe.exe', seconds: 30, phase: 'before', context: 'Gaming', scenario: 'Optional display compatibility', displayTracking: true });
+    await delay(3000);
+    const displayRun = await capture.stop();
+    if (displayRun.summary) {
+      assert.equal(displayRun.status, 'completed', displayRun.error);
+      assert.equal(displayRun.summary.displayTracking, true);
+      console.log('PASS: optional display tracking produced application data on this runner.');
+    } else {
+      assert.equal(displayRun.status, 'failed');
+      assert.match(displayRun.error, /Turn off Collect displayed FPS/);
+      console.log('PASS: unavailable optional display mode is explicitly unsuccessful, with no invented FPS and a default-mode retry guide.');
+    }
     console.log(`PASS: real D3D11 presentation capture (${record.summary.frames} frames), CSV export, tweak snapshot, and trace stop.`);
   } finally {
     if (capture?.isActive()) await capture.stop();
