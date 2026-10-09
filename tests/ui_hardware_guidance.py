@@ -19,7 +19,7 @@ fixture = '''(() => {
  const scan=async()=>{if(window.failScan)throw Error('Fixture inventory unavailable');const copy=structuredClone(window.hw);if(window.hold)return await new Promise(resolve=>window.releaseScan=()=>resolve(copy));return copy;};
  window.tweaker={scan,getTweakStatus:async()=>status(),listBackups:async()=>[],getDisplayModes:async()=>[],openSettings:async()=>{},captureStatus:async()=>({active:false}),listCaptures:async()=>[],listPrograms:async()=>[],obsStatus:async()=>({connected:false}),
  scanPeripherals:async()=>({peripherals:window.hw.peripherals,scannedAt:window.hw.scannedAt,warnings:[]}),
- scanDrivers:async()=>({hardware:await scan(),scannedAt:new Date().toISOString(),warnings:[],board:{manufacturer:'',product:''},computer:{manufacturer:'',model:''},bios:{},disks:[],devices:[],recommendations:[]})};
+ scanDrivers:async()=>{const hardware=await scan();return {hardware,components:[{id:'graphics',category:'Graphics',name:hardware.gpu.name,values:{},source:null,sourceName:'',note:'Fixture inventory',deviceIds:[]}],componentsComplete:true,scannedAt:new Date().toISOString(),warnings:[],board:{manufacturer:'',product:''},computer:{manufacturer:'',model:''},bios:{},disks:[],devices:[],recommendations:[]}}};
 })();'''.replace('HW', json.dumps(amd)).replace('IDS', json.dumps(ids))
 
 with sync_playwright() as p:
@@ -55,7 +55,7 @@ with sync_playwright() as p:
     nav('Streaming lab'); expect(page.locator('.obs-panel')).to_contain_text('NVIDIA NVENC AV1')
     nav('Peripherals'); expect(page.locator('.device-list')).to_contain_text('Fixture keyboard'); expect(page.get_by_role('heading',name='Epomaker EP-84',exact=True)).to_have_count(0)
     # Drivers scan is another producer of the same shared report.
-    set_hw(intel); nav('Drivers & devices'); page.get_by_role('button',name='Scan drivers & devices').click(); expect(page.locator('.driver-facts')).to_contain_text('Intel Arc A770')
+    set_hw(intel); nav('Drivers & devices'); page.get_by_role('button',name='Scan drivers & devices').click(); expect(page.locator('.component-cards')).to_contain_text('Intel Arc A770')
     nav('Streaming lab'); expect(page.locator('.obs-panel')).to_contain_text('Intel Quick Sync AV1'); assert 'NVIDIA' not in page.locator('.obs-panel').inner_text()
     nav('Display studio'); expect(page.locator('.resolution-panel')).to_contain_text('Intel')
     scan_pc(unknown); expect(page.locator('.insight').nth(1)).to_contain_text('configured speed was not reported')

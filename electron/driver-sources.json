@@ -22,5 +22,15 @@
   "samsung": { "name": "Samsung storage tools", "url": "https://semiconductor.samsung.com/consumer-storage/support/tools/" },
   "crucial": { "name": "Crucial support", "url": "https://www.crucial.com/support" },
   "wd": { "name": "Western Digital support", "url": "https://support-en.wd.com/" },
-  "seagate": { "name": "Seagate support", "url": "https://www.seagate.com/support/" }
+  "seagate": { "name": "Seagate support", "url": "https://www.seagate.com/support/" },
+  "realtek": { "name": "Realtek official site", "url": "https://www.realtek.com/" },
+  "qualcomm": { "name": "Qualcomm support", "url": "https://www.qualcomm.com/support" },
+  "mediatek": { "name": "MediaTek official site", "url": "https://www.mediatek.com/" },
+  "broadcom": { "name": "Broadcom support", "url": "https://www.broadcom.com/support/download-search" },
+  "tplink": { "name": "TP-Link downloads", "url": "https://www.tp-link.com/us/support/download/" },
+  "elgato": { "name": "Elgato downloads", "url": "https://www.elgato.com/us/en/s/downloads" },
+  "brother": { "name": "Brother support", "url": "https://support.brother.com/" },
+  "canon": { "name": "Canon support", "url": "https://www.usa.canon.com/support" },
+  "epson": { "name": "Epson support", "url": "https://epson.com/Support/sl/s" },
+  "samsung-support": { "name": "Samsung device support", "url": "https://www.samsung.com/us/support/" }
 }

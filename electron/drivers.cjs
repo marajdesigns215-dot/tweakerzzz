@@ -1,6 +1,8 @@
 'use strict';
 const path = require('node:path');
 const { scanSystem, execute } = require('./scanner.cjs');
+const { createDeviceScanner } = require('./device-inventory.cjs');
+const { hardwareComponents } = require('./hardware-components.cjs');
 const sources = require('./driver-sources.json');
 const text = value => typeof value === 'string' ? value.trim().slice(0, 250) : '';
 const useful = value => { const s = text(value); return /^(?:default string|to be filled|system product name|system manufacturer|unknown|not applicable|none|n\/a)/i.test(s) ? '' : s; };
@@ -42,21 +44,26 @@ function recommendDrivers(report) {
 const queries = {
   board: 'Get-CimInstance Win32_BaseBoard | Select-Object Manufacturer,Product,Version',
   computer: 'Get-CimInstance Win32_ComputerSystem | Select-Object Manufacturer,Model',
-  bios: 'Get-CimInstance Win32_BIOS | Select-Object Manufacturer,SMBIOSBIOSVersion',
-  disks: 'Get-CimInstance Win32_DiskDrive | Select-Object Model,FirmwareRevision',
-  devices: "Get-CimInstance Win32_PnPSignedDriver | Where-Object { $_.DeviceClass -in @('DISPLAY','NET','MEDIA','SYSTEM','SCSIADAPTER','HDC','USB','BLUETOOTH') } | Select-Object DeviceName,DeviceClass,Manufacturer,DriverVersion,DriverDate",
+  bios: "Get-CimInstance Win32_BIOS | Select-Object Manufacturer,SMBIOSBIOSVersion,@{Name='ReleaseDate';Expression={if ($_.ReleaseDate) {$_.ReleaseDate.ToString('yyyy-MM-dd')}}}",
+  disks: 'Get-CimInstance Win32_DiskDrive | Select-Object DeviceID,Model,FirmwareRevision,InterfaceType',
+  processors: 'Get-CimInstance Win32_Processor | Select-Object DeviceID,Name,Manufacturer,SocketDesignation,NumberOfCores,NumberOfLogicalProcessors',
+  graphics: 'Get-CimInstance Win32_VideoController | Select-Object Name,PNPDeviceID,DriverVersion',
+  memoryModules: 'Get-CimInstance Win32_PhysicalMemory | Select-Object Manufacturer,PartNumber,DeviceLocator,Capacity,ConfiguredClockSpeed',
 };
-function createDriverScanner({ readHardware = scanSystem, run = execute, environment = process.env } = {}) {
+function createDriverScanner({ readHardware = scanSystem, run = execute, environment = process.env, readInventory = createDeviceScanner({ run, environment }) } = {}) {
   return async () => {
     const executable = path.win32.join(environment.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
     const warnings = [];
     const entries = Object.entries(queries);
-    const results = await Promise.allSettled([readHardware(), ...entries.map(([, q]) => run(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', `$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); $rows=@(${q}); ConvertTo-Json -InputObject $rows -Depth 4 -Compress`], { timeoutMs: 25000 }))]);
+    const results = await Promise.allSettled([readHardware(), ...entries.map(([, q]) => run(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', `$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); $rows=@(${q}); ConvertTo-Json -InputObject $rows -Depth 4 -Compress`], { timeoutMs: 25000 })), readInventory()]);
     if (results[0].status !== 'fulfilled') throw results[0].reason;
     const raw = {};
     entries.forEach(([key], i) => { try { const r = results[i + 1]; if (r.status === 'rejected') throw r.reason; const rows = JSON.parse(r.value.replace(/^\uFEFF/, '')); if (!Array.isArray(rows)) throw new Error('Invalid inventory response'); raw[key] = rows; } catch (e) { raw[key] = []; warnings.push({ component: key, message: String(e.message).slice(0, 2000) }); } });
-    const report = { hardware: results[0].value, board: { manufacturer: useful(raw.board[0]?.Manufacturer), product: useful(raw.board[0]?.Product), version: useful(raw.board[0]?.Version) }, computer: { manufacturer: useful(raw.computer[0]?.Manufacturer), model: useful(raw.computer[0]?.Model) }, bios: { manufacturer: useful(raw.bios[0]?.Manufacturer), version: useful(raw.bios[0]?.SMBIOSBIOSVersion) }, disks: raw.disks.map(d => ({ model: text(d.Model), firmware: text(d.FirmwareRevision) })), devices: raw.devices.filter(d => d.DeviceName).slice(0, 1000).map(d => ({ name: text(d.DeviceName), category: text(d.DeviceClass).toUpperCase(), provider: text(d.Manufacturer), version: text(d.DriverVersion) })), warnings: [...(results[0].value.warnings || []), ...warnings], scannedAt: new Date().toISOString() };
-    return { ...report, recommendations: recommendDrivers(report) };
+    const inventoryResult = results.at(-1);
+    const inventory = inventoryResult.status === 'fulfilled' ? inventoryResult.value : { devices: [], complete: false, warnings: [{ component: 'device inventory', message: String(inventoryResult.reason.message).slice(0, 2000) }] };
+    const report = { hardware: results[0].value, board: { manufacturer: useful(raw.board[0]?.Manufacturer), product: useful(raw.board[0]?.Product), version: useful(raw.board[0]?.Version) }, computer: { manufacturer: useful(raw.computer[0]?.Manufacturer), model: useful(raw.computer[0]?.Model) }, bios: { manufacturer: useful(raw.bios[0]?.Manufacturer), version: useful(raw.bios[0]?.SMBIOSBIOSVersion) }, disks: raw.disks.map(d => ({ model: text(d.Model), firmware: text(d.FirmwareRevision) })), devices: inventory.devices, inventoryComplete: inventory.complete, inventoryScannedAt: inventory.scannedAt, warnings: [...(results[0].value.warnings || []), ...warnings, ...inventory.warnings], scannedAt: new Date().toISOString() };
+    report.recommendations = recommendDrivers(report);
+    return { ...report, components: hardwareComponents(report, raw), componentsComplete: !warnings.length };
   };
 }
 function driverSource(id) { if (typeof id !== 'string' || !Object.hasOwn(sources, id)) throw new Error('Unknown official download source.'); return sources[id].url; }

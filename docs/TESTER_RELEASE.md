@@ -1,6 +1,18 @@
-Download **Tweakerzzz-Setup-0.6.4-x64.exe** below. Quit the old app including its tray icon, then run the installer. No Node/npm or PowerShell launch commands are needed.
+Download **Tweakerzzz-Setup-0.7.0-x64.exe** below. Quit the old app including its tray icon, then run the installer. No Node/npm or PowerShell launch commands are needed.
 
-**New in v0.6.4: your setup workflow.** Navigation now follows Overview / PC scanner → Drivers & devices → FPS recorder → Restore center → Optimizations → Peripherals → Streaming lab. Overview and PC scanner remain adjacent pages. Display studio follows Streaming lab; How it works and Updates remain available below. Overview and How it works include the same seven-step guide, with a reminder to return to FPS recorder for an After run. All tools stay directly accessible. Saved settings and the v0.6.3 FPS calculations are preserved.
+**New in v0.7.0: hardware, update offers and PC change history.**
+
+Open **Drivers & devices → Scan drivers & devices** to see detected graphics cards, processors, motherboard, BIOS/UEFI, RAM, storage firmware and identifiable platform components. No reference PC is loaded.
+
+- **Update offers:** manually query the PC’s configured Windows Update source for applicable driver/firmware packages, with publisher descriptions and recognized official release links. Searches can be cancelled. No packages are downloaded or installed.
+- **Manufacturer release notes:** use each component’s official support directory and select its exact model/revision. Windows Update is not a universal latest-version check; newer GPU, chipset and BIOS releases can be absent. Full manufacturer changelogs are not automatically fetched.
+- **Change history:** the first complete scan establishes a baseline; later scans show changes to driver versions, BIOS/storage firmware and component details. Observation times are not claimed installation times. Partial scans preserve the prior baseline. Optional local checks every 15 minutes are off by default and pause for FPS recordings.
+- **Windows installation log:** read retained installation operations separately from scan comparisons. The log is bounded and may not contain a full history.
+- **Advanced records and exports:** search and paginate underlying driver records. Export the displayed evidence with raw device identifiers excluded by default. Local history survives upgrades and uninstall until explicitly cleared.
+
+See [hardware update coverage, limits and validation](https://github.com/marajdesigns215-dot/tweakerzzz/blob/v0.7.0/docs/HARDWARE_UPDATES.md). CPU support usually comes through chipset and motherboard BIOS updates; ordinary RAM/fans do not have separate performance drivers. This app never flashes firmware.
+
+**Includes the v0.6.4 workflow:** Overview / PC scanner → Drivers & devices → FPS recorder → Restore center → Optimizations → Peripherals → Streaming lab. Display studio, How it works and Updates remain available. Record an After run in the same scene after reviewed changes.
 
 **Included from v0.6.3:**
 
@@ -26,7 +38,7 @@ Download **Tweakerzzz-Setup-0.6.4-x64.exe** below. Quit the old app including it
 
 **Automatic game vibrance:** Display studio now has NVIDIA digital-vibrance profiles for the foreground game/program on a selected monitor. Choose the monitor, add the real game executable, set desktop/game levels, confirm SDR (HDR off), then Save & start observer. Stop or quit to restore the original driver level; closing the window keeps an active observer in the tray. Profiles do not auto-start at login. AMD, Intel, hybrid/remote outputs, and unsupported NVIDIA controls stay unavailable. Brightness/contrast/warmth remain preview-only. Physical NVIDIA color changes still require tester validation; CI checks the helper and unsupported-hardware path without changing a display.
 
-**Drivers & devices:** Scan actual motherboard/system/BIOS, GPU/CPU, storage, component driver versions, and peripherals for official vendor support links. Match the exact model, board/device revision, and Windows version before downloading. Fan software is suggested for the motherboard or identifiable USB controller; individual ordinary fans usually cannot be detected. These are support recommendations, not verified update availability. No automatic downloads, installs, BIOS flashes, or firmware changes.
+**Drivers & devices:** Scan actual motherboard/system/BIOS, GPU/CPU, storage, component driver versions, and peripherals for official vendor support links. Match the exact model, board/device revision, and Windows version before downloading. Fan software is suggested for the motherboard or identifiable USB controller; individual ordinary fans usually cannot be detected. Support directories are not verified exact-model updates. The separate Update offers tab checks the configured Windows Update source with the limits above. No automatic downloads, installs, BIOS flashes, or firmware changes.
 
 **Settings snapshot fix:** Saving a snapshot no longer launches the downloaded `tweaks.ps1` file. It uses a fixed read-only query and preserves the same exact-value backup format without changing execution policy. Windows validation reproduces an Internet-zone-marked script and checks all 22 saved preferences. For tester installation, download the **.exe asset**, not GitHub’s “Source code (zip)”. Apply/restore from a source ZIP still requires trusting/unblocking that ZIP or using an approved distribution.
 

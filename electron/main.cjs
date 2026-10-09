@@ -10,14 +10,17 @@ const { nativeError } = require('./native-errors.cjs');
 const { getTweakStatus } = require('./tweak-status.cjs');
 const { listBackups } = require('./backups.cjs');
 const { saveSnapshot } = require('./snapshots.cjs');
-const { scanDrivers, driverSource } = require('./drivers.cjs');
+const { driverSource } = require('./drivers.cjs');
+const { createDriverHistory } = require('./driver-history.cjs');
+const { readDriverInstallLog } = require('./driver-install-log.cjs');
+const { createDriverUpdateChecker } = require('./driver-updates.cjs');
 const { createColorManager } = require('./colors.cjs');
 const { createCaptureManager, listPrograms } = require('./capture.cjs');
 const collector = require('./presentmon.json');
 const { createUpdateManager, RELEASES_URL } = require('./updates.cjs');
 const { createObsClient } = require('./obs.cjs');
 const obs = createObsClient();
-let capture, tray, captureStart, colors, updates;
+let capture, tray, captureStart, colors, updates, drivers, driverUpdates;
 
 let window;
 let nativeBusy = false;
@@ -220,7 +223,15 @@ function registerHandlers() {
   handle('tweaker:update-install', () => updates.install());
   handle('tweaker:update-release', () => shell.openExternal(RELEASES_URL));
   handle('tweaker:scan', () => scanSystem());
-  handle('tweaker:drivers', () => scanDrivers());
+  handle('tweaker:drivers', () => { ensureNotRecording(); return drivers.scan(); });
+  handle('tweaker:driver-history', () => drivers.status());
+  handle('tweaker:driver-monitor', enabled => drivers.setMonitor(enabled));
+  handle('tweaker:driver-history-clear', () => drivers.clear());
+  handle('tweaker:driver-install-log', () => readDriverInstallLog());
+  handle('tweaker:driver-update-check', () => { ensureNotRecording(); return driverUpdates.check(); });
+  handle('tweaker:driver-update-status', () => driverUpdates.status());
+  handle('tweaker:driver-update-cancel', () => driverUpdates.cancel());
+  handle('tweaker:driver-update-link', (id, index) => shell.openExternal(driverUpdates.link(id, index)));
   handle('tweaker:driver-source', id => shell.openExternal(driverSource(id)));
   handle('tweaker:color-status', () => colors.status());
   handle('tweaker:color-save', config => exclusive(() => { ensureNotRecording(); return colors.save(config); }));
@@ -252,6 +263,7 @@ function registerHandlers() {
   handle('tweaker:capture-start', input => {
     captureStart = exclusive(() => {
       if (pendingDisplay) throw new Error('Finish the display test before recording.');
+      if (drivers?.isBusy() || driverUpdates?.isBusy()) throw new Error('Wait for the hardware or driver update check to finish before recording FPS.');
       return capture.start(input);
     }).finally(() => { captureStart = null; });
     return captureStart;
@@ -346,13 +358,16 @@ else {
       engine: app.isPackaged && process.platform === 'win32' ? require('electron-updater').autoUpdater : null,
       currentVersion: app.getVersion(),
       prepareInstall: async () => {
-        if (nativeBusy || captureStart) throw new Error('Wait for the current Windows operation to finish, then install again.');
+        if (nativeBusy || captureStart || drivers?.isBusy() || driverUpdates?.isBusy()) throw new Error('Wait for the current Windows operation to finish, then install again.');
         if (capture?.isActive()) throw new Error('Stop the FPS recording before installing. Your saved runs will be kept.');
         if (pendingDisplay) throw new Error('Finish or cancel the resolution test before installing.');
         if (colors?.isActive() || colors?.hasRecoveryPending()) throw new Error('Stop color profiles and restore the display in Display studio before installing.');
         await colors?.close();
       },
     });
+    drivers = createDriverHistory({ directory: path.join(app.getPath('userData'), 'driver-history'), canPoll: () => !quitting && !nativeBusy && !captureStart && !capture?.isActive() && !pendingDisplay && !updates?.isInstalling() });
+    driverUpdates = createDriverUpdateChecker();
+    drivers.start();
     registerHandlers();
     createWindow();
     tray = new Tray(app.isPackaged ? path.join(process.resourcesPath, 'app.ico') : path.join(__dirname, '..', 'build', 'icon.ico'));
@@ -365,6 +380,6 @@ app.on('before-quit', event => {
   if (quitting) return;
   quitting = true;
   event.preventDefault();
-  Promise.resolve(captureStart).catch(() => {}).then(() => Promise.allSettled([revertDisplay(), capture?.stop(), colors?.close()])).finally(() => app.quit());
+  Promise.resolve(captureStart).catch(() => {}).then(() => Promise.allSettled([revertDisplay(), capture?.stop(), colors?.close(), drivers?.close(), driverUpdates?.close()])).finally(() => app.quit());
 });
 app.on('window-all-closed', () => app.quit());

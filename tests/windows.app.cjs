@@ -88,7 +88,16 @@ async function until(fn, label, timeout = 45000) {
     // Driver scans, peripheral scans, process lists, snapshots and navigation
     // are read-only with respect to Windows settings. Never test a display change here.
     await nav('Drivers & devices'); await click('Scan drivers & devices');
-    await waitFor("!!document.querySelector('.driver-facts')", 'live driver inventory');
+    await waitFor("document.querySelectorAll('.component-card').length>0", 'live hardware component inventory');
+    await click('Change history');
+    await waitFor("document.querySelector('.driver-history')?.textContent.includes('Baseline saved')", 'saved live driver baseline');
+    await click('Advanced records');
+    await waitFor("document.querySelectorAll('.driver-inventory tbody tr').length>0", 'underlying Windows driver records');
+    await click('Update offers');
+    await waitFor("[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Check driver update offers') && !b.disabled)", 'manual driver update check');
+    await click('Hardware');
+    const hardwareShot = await send('Page.captureScreenshot', { format: 'png' });
+    await fs.writeFile('release/qa/windows-hardware.png', Buffer.from(hardwareShot.data, 'base64'));
     await nav('Peripherals'); await click('Scan devices');
     await waitFor("[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='Scan devices' && !b.disabled)", 'peripheral scan');
     assert.equal(await evaluate("!!document.querySelector('[role=alert]')"), false, 'Peripheral scan failed');

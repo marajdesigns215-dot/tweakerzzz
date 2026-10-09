@@ -50,13 +50,40 @@ export type CaptureStatus = ({ active: false } | (Partial<CaptureRecord> & { act
 export interface DisplayMode { width: number; height: number; refreshRate: number }
 export interface ProgramColorConfig { displayId: string; desktop: number; sdrConfirmed: boolean; profiles: { processName: string; vibrance: number }[] }
 export interface ColorStatus { active: boolean; activeProgram: string; supported: boolean; recoveryPending: boolean; displays: { id: string; label: string; vibrance: number }[]; config: ProgramColorConfig; error: string }
+export interface DriverDevice {
+  id: string; instanceId: string; name: string; category: string; manufacturer: string;
+  hardwareIds: string[]; compatibleIds: string[]; classGuid: string; service: string;
+  status: string; present: boolean | null; problemCode: number | null;
+  provider: string; version: string; driverDate: string; infName: string;
+  signed: boolean | null; signer: string; driverReported: boolean;
+  source: string | null; sourceName: string;
+}
+export interface DriverChange {
+  id: string; deviceId: string; instanceId: string; name: string; category: string;
+  kind: 'first-seen' | 'not-reported' | 'driver-changed' | 'device-changed' | 'firmware-changed' | 'component-changed'; observedAt: string; previousScanAt: string;
+  fields: { field: string; before: string | number | boolean | null; after: string | number | boolean | null }[];
+}
+export interface DriverHistory {
+  monitorEnabled: boolean; baselineAt: string | null; lastScanAt: string | null; scans: number;
+  deviceCount: number; changes: DriverChange[]; limit: number; message: string;
+}
+export interface DriverInstallLog {
+  available: boolean; source: string; readAt: string; truncated: boolean; message: string;
+  entries: { id: string; deviceId: string | null; instanceId: string; operation: string; localTime: string; result: 'success' | 'failed' | 'unknown'; detail: string }[];
+}
 export interface DriverReport {
   hardware: SystemScan; scannedAt: string; warnings: ScanWarning[];
   board: { manufacturer: string; product: string; version: string };
   computer: { manufacturer: string; model: string }; bios: { manufacturer: string; version: string };
   disks: { model: string; firmware: string }[];
-  devices: { name: string; category: string; provider: string; version: string }[];
+  devices: DriverDevice[]; inventoryComplete?: boolean; inventoryScannedAt?: string; history?: DriverHistory;
+  components: HardwareComponent[]; componentsComplete: boolean;
   recommendations: { id: string; category: string; title: string; device: string; source: string | null; sourceName: string; reason: string; note: string; confidence: string }[];
+}
+export interface HardwareComponent { id: string; category: string; name: string; values: Record<string, string>; source: string | null; sourceName: string; note: string; deviceIds: string[] }
+export interface DriverUpdateOffers {
+  checkedAt: string; complete: boolean; source: string; message: string;
+  packages: { id: string; title: string; description: string; manufacturer: string; model: string; driverClass: string; hardwareId: string; driverDate: string; catalogDate: string; links: { url: string; label: string }[] }[];
 }
 export interface UpdateStatus {
   supported: boolean; currentVersion: string;
@@ -74,6 +101,14 @@ declare global {
       installUpdate(): Promise<UpdateStatus>;
       openUpdateRelease(): Promise<void>;
       scanDrivers(): Promise<DriverReport>;
+      getDriverHistory(): Promise<DriverHistory>;
+      setDriverMonitoring(enabled: boolean): Promise<DriverHistory>;
+      clearDriverHistory(): Promise<DriverHistory>;
+      getDriverInstallLog(): Promise<DriverInstallLog>;
+      checkDriverUpdates(): Promise<DriverUpdateOffers>;
+      getDriverUpdateStatus(): Promise<{ checking: boolean; result: DriverUpdateOffers | null }>;
+      cancelDriverUpdateCheck(): Promise<void>;
+      openDriverUpdateLink(id: string, index: number): Promise<void>;
       openDriverSource(id: string): Promise<void>;
       colorStatus(): Promise<ColorStatus>;
       saveColorProfiles(config: ProgramColorConfig): Promise<ColorStatus>;

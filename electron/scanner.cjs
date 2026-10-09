@@ -19,10 +19,11 @@ const QUERIES = Object.freeze({
   peripherals: peripheralQuery,
 });
 
-function execute(file, args, { timeoutMs = 12000 } = {}) {
+function execute(file, args, { timeoutMs = 12000, maxBufferBytes = 2 * 1024 * 1024, signal } = {}) {
   return new Promise((resolve, reject) => {
-    execFile(file, args, { windowsHide: true, shell: false, timeout: timeoutMs, maxBuffer: 2 * 1024 * 1024, encoding: 'utf8' }, (error, stdout, stderr) => {
+    execFile(file, args, { windowsHide: true, shell: false, timeout: timeoutMs, maxBuffer: Math.min(maxBufferBytes, 8 * 1024 * 1024), encoding: 'utf8', signal }, (error, stdout, stderr) => {
       if (error) {
+        if (signal?.aborted) return reject(nativeError('The Windows query was cancelled.', 'Windows query'));
         let detail = stderr || error.message;
         try { detail = JSON.parse(stdout.trim()).error || detail; } catch { /* Prefer stderr when the command could not start. */ }
         return reject(nativeError(error.killed ? `The Windows query did not respond within ${timeoutMs / 1000} seconds.` : detail, 'Windows query'));

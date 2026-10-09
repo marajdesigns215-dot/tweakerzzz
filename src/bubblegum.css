@@ -93,6 +93,37 @@ button.build-tag { cursor: pointer; color: #dfb9d1; font-family: inherit; backgr
 @media (max-width: 1200px) { .workflow-guide ol { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 700px) { .workflow-guide { padding: 18px; } .workflow-guide ol { grid-template-columns: 1fr; } }
 
+.driver-view-tabs { display: flex; flex-wrap: wrap; margin: 24px 0; }
+.driver-center > * { min-width: 0; }
+.driver-view-tabs button { min-height: 48px; }
+.component-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
+.component-card { min-width: 0; }
+.component-card h3 { margin: 14px 0; overflow-wrap: anywhere; }
+.component-card dl, .driver-change-list dl, .device-detail-list { margin: 16px 0; }
+.component-card dl > div, .driver-change-list dl > div, .device-detail-list > div { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 1.4fr); gap: 14px; padding: 9px 0; border-bottom: 1px solid #714260; }
+.component-card dt, .driver-change-list dt, .device-detail-list dt { color: #d9bad2; }
+.component-card dd, .driver-change-list dd, .device-detail-list dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; color: #fff2fa; }
+.component-card .button { margin: 16px 0 10px; white-space: normal; }
+.component-card small { display: block; line-height: 1.7; }
+.driver-guides { margin-top: 24px; }
+.driver-guides > summary, .windows-install-log > summary { cursor: pointer; font-weight: 700; padding: 8px 0; }
+.driver-offers > .button, .driver-export > .button { margin: 18px 0; }
+.driver-offers .notice-panel { padding: 20px; margin: 12px 0; }
+.driver-offers .notice-panel p, .driver-offers .notice-panel small { display: block; margin-top: 8px; line-height: 1.7; }
+.driver-offer-card, .driver-change-list article, .windows-install-log article { padding: 22px; margin: 18px 0; border: 1px solid #825774; border-radius: 18px; background: #351b36; overflow-wrap: anywhere; }
+.driver-offer-card h3, .driver-offer-card p { margin: 12px 0; }
+.driver-release-text { white-space: pre-wrap; max-height: 320px; overflow-y: auto; line-height: 1.7; }
+.driver-history h2 { display: flex; gap: 12px; align-items: center; }
+.driver-history > p, .driver-history > label, .driver-export > label { margin: 16px 0; }
+.driver-pagination { align-items: center; margin-top: 20px; flex-wrap: wrap; }
+.driver-inventory summary, .driver-offer-card summary { cursor: pointer; min-height: 40px; }
+.driver-inventory td { vertical-align: top; }
+.device-detail-list { min-width: 300px; }
+.windows-install-log { margin-top: 26px; }
+.windows-install-log code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.driver-export { margin-top: 24px; }
+@media (max-width: 900px) { .component-cards { grid-template-columns: 1fr; } .driver-change-list .section-heading { flex-wrap: wrap; } }
+
 .blocked-tweaks ul { padding-left: 22px; margin: 18px 0; }
 .blocked-tweaks li { margin-bottom: 16px; }
 .blocked-tweaks details { margin-top: 8px; }

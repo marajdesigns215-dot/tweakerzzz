@@ -106,10 +106,15 @@ async function nativeHarness({ singleInstance = true, updaterEngine = null } = {
   const capture = { active: false, isActive() { return this.active; }, async start(input) { require('../electron/capture.cjs').validateCapture(input); this.active = true; return { active: true }; }, async stop() { this.active = false; }, status() { return { active: this.active }; } };
   class FakeTray extends EventEmitter { setToolTip() {} setContextMenu() {} }
   const colors = { active: false, recovery: false, isActive() { return this.active; }, hasRecoveryPending() { return this.recovery; }, close: async () => {} };
+  const drivers = { busy: false, isBusy() { return this.busy; }, start() {}, close: async () => {}, scan: async () => ({ recommendations: [] }), status: async () => ({ changes: [] }) };
+  const driverUpdates = { busy: false, isBusy() { return this.busy; }, check: async () => ({ packages: [] }), status: () => ({ checking: false, result: null }), cancel() {}, close: async () => {} };
   const fakeRequire = id => {
     if (id === './updates.cjs') return { ...require('../electron/updates.cjs'), createUpdateManager: options => require('../electron/updates.cjs').createUpdateManager({ ...options, engine: updaterEngine }) };
     if (id === './snapshots.cjs') return { saveSnapshot: async (_directory, ids) => ({ backupId: 'a'.repeat(32), applied: ids }) };
     if (id === './drivers.cjs') return { scanDrivers: async () => ({ recommendations: [] }), driverSource: require('../electron/drivers.cjs').driverSource };
+    if (id === './driver-history.cjs') return { createDriverHistory: () => drivers };
+    if (id === './driver-install-log.cjs') return { readDriverInstallLog: async () => ({ available: true, entries: [] }) };
+    if (id === './driver-updates.cjs') return { createDriverUpdateChecker: () => driverUpdates };
     if (id === './colors.cjs') return { createColorManager: () => colors };
     if (id === './obs.cjs') return { createObsClient: () => ({ status: () => ({ connected: false }) }) };
     if (id === './capture.cjs') return { createCaptureManager: () => capture, listPrograms: async () => [] };
@@ -132,7 +137,7 @@ async function nativeHarness({ singleInstance = true, updaterEngine = null } = {
   await Promise.resolve();
   const window = windows[0];
   const event = window && { sender: window.webContents, senderFrame: window.webContents.mainFrame };
-  return { app, calls, children, errors, timers, window, event, capture, colors, invoke: (channel, ...args) => handlers.get(channel)(event, ...args), invokeAs: (channel, sender, ...args) => handlers.get(channel)(sender, ...args) };
+  return { app, calls, children, errors, timers, window, event, capture, colors, drivers, driverUpdates, invoke: (channel, ...args) => handlers.get(channel)(event, ...args), invokeAs: (channel, sender, ...args) => handlers.get(channel)(sender, ...args) };
 }
 
 test('IPC rejects subframes and remote documents before starting a native process', async () => {
@@ -221,11 +226,20 @@ test('FPS recording keeps a closed window in the tray and blocks configuration c
   await assert.rejects(app.invoke('tweaker:apply', ['game-mode']), /Stop the FPS recording/);
   await assert.rejects(app.invoke('tweaker:preferences', 'defaults', ['game-mode']), /Stop the FPS recording/);
   await assert.rejects(app.invoke('tweaker:display-set', { width: 1920, height: 1080, refreshRate: 60 }), /Stop the FPS recording/);
+  await assert.rejects(app.invoke('tweaker:driver-update-check'), /Stop the FPS recording/);
+  await assert.rejects(app.invoke('tweaker:drivers'), /Stop the FPS recording/);
   await app.invoke('tweaker:capture-stop');
   await app.invoke('tweaker:preferences', 'disable', ['game-mode']);
   assert.equal(app.calls[0].payload.action, 'disable');
   await assert.rejects(app.invoke('tweaker:preferences', 'factory-reset-pc', ['game-mode']), /Unsupported/);
   app.app.emit('second-instance'); assert.equal(app.window.hidden, false);
+});
+
+test('pending hardware and driver offer checks cannot overlap a new FPS capture', async () => {
+  const h = await nativeHarness(), input = { processName: 'game.exe', phase: 'before', context: 'Gaming', seconds: 30, scenario: 'Same scene' };
+  h.drivers.busy = true; await assert.rejects(h.invoke('tweaker:capture-start', input), /hardware or driver update check/);
+  h.drivers.busy = false; h.driverUpdates.busy = true; await assert.rejects(h.invoke('tweaker:capture-start', input), /hardware or driver update check/);
+  h.driverUpdates.busy = false; await h.invoke('tweaker:capture-start', input); assert.equal(h.capture.active, true);
 });
 
 test('update installation is blocked during FPS recording, color recovery, and display tests', async () => {
