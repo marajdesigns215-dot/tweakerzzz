@@ -1,6 +1,6 @@
 'use strict';
 // Read-only provider contract investigation on the supported Windows platform.
-// No drivers, firmware, installers or remote scripts are downloaded/executed.
+// No drivers, firmware or installers are downloaded; website text is never executed.
 const fs = require('node:fs/promises');
 const pages = {
   nvidiaProducts: 'https://www.nvidia.com/Download/API/lookupValueSearch.aspx?TypeID=3',
@@ -22,6 +22,8 @@ async function read(url) {
     try {
       const data = await read(url); evidence[key] = { bytes: data.length, sample: data.slice(0, key === 'nvidiaDriver' || key === 'asusBios' ? 7000 : 1500) };
       if (key === 'msiBoard') {
+        const inline = [...data.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(s=>/support|bios|product/i.test(s)).join('\n').slice(-20000);
+        for (let i=0;i<inline.length;i+=3000) console.log(`::notice title=MSI support contract ${i/3000}::${inline.slice(i,i+3000).replaceAll('%','%25').replaceAll('\n','%0A').replaceAll('\r','%0D')}`);
         const scripts = [...data.matchAll(/<script[^>]+src=["']([^"']+)["']/gi)].map(m => new URL(m[1],url)).filter(u => /(^|\.)msi\.com$/.test(u.hostname));
         evidence[key].scripts = scripts.map(u=>u.href);
         evidence[key].markers = [...data.matchAll(/.{0,120}(?:getBIOS|getBios|get_bios|Get_Bios|support_ajax|api\/v1|7C95v|product_id).{0,180}/gi)].slice(0,20).map(m=>m[0]);
