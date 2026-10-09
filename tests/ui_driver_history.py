@@ -29,18 +29,14 @@ with sync_playwright() as p:
     page.add_init_script(fixture);page.goto(os.environ.get('TWEAKER_URL','http://127.0.0.1:5173'),wait_until='networkidle')
     page.get_by_role('button',name='Drivers & devices',exact=True).click()
     page.get_by_role('button',name='Scan drivers & devices').click()
-    expect(page.locator('.component-card')).to_have_count(4)
+    expect(page.locator('.component-card')).to_have_count(3)
     expect(page.locator('.component-card').filter(has_text='Unidentified SSD').get_by_role('button')).to_have_count(0)
     page.locator('.component-card').filter(has_text='AMD Radeon fixture').get_by_role('button').click()
     assert ['source','amd'] in page.evaluate('window.calls')
     page.get_by_label('Hardware component category',exact=True).select_option('BIOS / UEFI');expect(page.locator('.component-card')).to_have_count(1)
     page.get_by_label('Hardware component category',exact=True).select_option('All components')
     page.screenshot(path='/tmp/tweakerzzz-validation/hardware-components.png',full_page=True)
-    page.get_by_role('tab',name='Advanced records').click()
-    expect(page.locator('.driver-inventory tbody tr')).to_have_count(25)
-    page.get_by_role('button',name='Next records').click();expect(page.locator('.driver-inventory tbody tr')).to_have_count(6)
-    page.get_by_label('SEARCH DRIVER RECORDS').fill('PRIVATE_SERIAL_30');expect(page.locator('.driver-inventory tbody tr')).to_have_count(1)
-    page.get_by_text('Details for Graphics device 30',exact=True).click();expect(page.locator('.device-detail-list')).to_contain_text('oem1.inf')
+    expect(page.get_by_role('tab',name='Advanced records')).to_have_count(0)
     page.get_by_role('tab',name='Update offers').click();page.get_by_role('button',name='Check driver update offers').click()
     expect(page.locator('.driver-offer-card')).to_contain_text('Hardware ID matches:')
     page.get_by_text('Published package information & release links',exact=True).click()
@@ -62,7 +58,7 @@ with sync_playwright() as p:
     page.get_by_role('button',name='Keep history').click();expect(page.locator('.driver-change-list')).to_contain_text('F9 → F10')
     for width in [390,900,1366]:
         page.set_viewport_size({'width':width,'height':1000})
-        for view in ['Hardware','Update offers','Change history','Advanced records']:
+        for view in ['Hardware','Update offers','Change history']:
             page.get_by_role('tab',name=view,exact=True).click()
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'),(width,view)
     page.set_viewport_size({'width':1366,'height':1000});page.get_by_role('tab',name='Update offers').click()
@@ -75,5 +71,5 @@ with sync_playwright() as p:
     page.get_by_role('tab',name='Change history').click();page.get_by_role('button',name='Clear local history').click();page.get_by_role('button',name='Delete local history').click()
     expect(page.locator('.driver-change-list article')).to_have_count(0);expect(page.get_by_label('Check for changes every 15 minutes',exact=False)).not_to_be_checked()
     assert not errors,errors
-    print('PASS: component cards, update offers/failure/cancel, history, pagination, privacy-aware exports and responsive views. Native data are fixtures.')
+    print('PASS: component cards, update offers/failure/cancel, history, hidden miscellaneous records, privacy-aware exports and responsive views. Native data are fixtures.')
     browser.close()

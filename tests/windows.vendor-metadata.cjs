@@ -15,7 +15,7 @@ const esc = s => s.replaceAll('%','%25').replaceAll('\n','%0A').replaceAll('\r',
     const report = {hardware:{os:{name:'Microsoft Windows 11 Pro'}},computer:{architecture:'x64',portable:fixture.portable}};
     const graphics = await lookup.nvidia({name:fixture.name,values:{'Installed driver':fixture.version}},report,fixture.branch);
     assert.match(graphics.version,/^\d{3,4}\.\d{2}$/);
-    assert.ok(graphics.match.includes(fixture.name));
+    assert.ok(graphics.match.includes(fixture.name.replace(/^NVIDIA /,'')));
     evidence.push({fixture,...graphics});
     console.log('::notice title=NVIDIA live contract::'+esc(JSON.stringify({fixture,version:graphics.version,source:graphics.source,match:graphics.match,url:graphics.url})));
   }

@@ -91,11 +91,16 @@ async function until(fn, label, timeout = 45000) {
     await waitFor("document.querySelectorAll('.component-card').length>0", 'live hardware component inventory');
     await click('Change history');
     await waitFor("document.querySelector('.driver-history')?.textContent.includes('Baseline saved')", 'saved live driver baseline');
-    await click('Advanced records');
-    await waitFor("document.querySelectorAll('.driver-inventory tbody tr').length>0", 'underlying Windows driver records');
+    assert.equal(await evaluate("[...document.querySelectorAll('[role=tab]')].some(b=>b.textContent==='Advanced records')"), false, 'Miscellaneous driver records should be hidden');
     await click('Update offers');
     await waitFor("[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Check driver update offers') && !b.disabled)", 'manual driver update check');
     await click('Hardware');
+    await waitFor("[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Check latest versions') && !b.disabled)", 'per-component latest-version control');
+    assert.equal(await evaluate("[...document.querySelectorAll('.component-card > .pill')].every(p=>['Graphics','Processor','Motherboard','BIOS / UEFI','Peripherals','Audio'].includes(p.textContent))"), true);
+    await click('Check latest versions');
+    await waitFor("window.tweaker.getComponentUpdateStatus().then(s=>s.checking || !!s.result)", 'real latest-version IPC starts');
+    await evaluate("window.tweaker.getComponentUpdateStatus().then(s=>s.checking ? window.tweaker.cancelComponentUpdates() : undefined)");
+    await waitFor("[...document.querySelectorAll('button')].some(b=>b.textContent.includes('Check latest versions') && !b.disabled)", 'version check completes or cancels');
     const hardwareShot = await send('Page.captureScreenshot', { format: 'png' });
     await fs.writeFile('release/qa/windows-hardware.png', Buffer.from(hardwareShot.data, 'base64'));
     await nav('Peripherals'); await click('Scan devices');

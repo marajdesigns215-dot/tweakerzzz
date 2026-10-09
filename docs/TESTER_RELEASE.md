@@ -1,16 +1,17 @@
-Download **Tweakerzzz-Setup-0.7.0-x64.exe** below. Quit the old app including its tray icon, then run the installer. No Node/npm or PowerShell launch commands are needed.
+Download **Tweakerzzz-Setup-0.7.1-x64.exe** below. Quit the old app including its tray icon, then run the installer. No Node/npm or PowerShell launch commands are needed.
 
-**New in v0.7.0: hardware, update offers and PC change history.**
+**New in v0.7.1: installed and available driver versions for the PC being scanned.**
 
-Open **Drivers & devices → Scan drivers & devices** to see detected graphics cards, processors, motherboard, BIOS/UEFI, RAM, storage firmware and identifiable platform components. No reference PC is loaded.
+Open **Drivers & devices → Scan drivers & devices → Check latest versions**.
 
-- **Update offers:** manually query the PC’s configured Windows Update source for applicable driver/firmware packages, with publisher descriptions and recognized official release links. Searches can be cancelled. No packages are downloaded or installed.
-- **Manufacturer release notes:** use each component’s official support directory and select its exact model/revision. Windows Update is not a universal latest-version check; newer GPU, chipset and BIOS releases can be absent. Full manufacturer changelogs are not automatically fetched.
-- **Change history:** the first complete scan establishes a baseline; later scans show changes to driver versions, BIOS/storage firmware and component details. Observation times are not claimed installation times. Partial scans preserve the prior baseline. Optional local checks every 15 minutes are off by default and pause for FPS recordings.
-- **Windows installation log:** read retained installation operations separately from scan comparisons. The log is bounded and may not contain a full history.
-- **Advanced records and exports:** search and paginate underlying driver records. Export the displayed evidence with raw device identifiers excluded by default. Local history survives upgrades and uninstall until explicitly cleared.
+- The view now contains graphics, processors, motherboard, BIOS/UEFI, peripherals and audio. Miscellaneous device records are hidden. Chipset/platform driver versions appear inside the motherboard card.
+- Compare installed versions with exact device-matched Windows Update offers across vendors. Each result identifies its source; no offers never means the latest manufacturer release is verified.
+- NVIDIA GeForce adds an official live model/Windows lookup for Game Ready WHQL and non-beta Studio releases, with published notes. The feed's WHQL status is shown as reported. NVIDIA's public version is displayed alongside the raw Windows version.
+- BIOS shows the installed firmware version and manufacturer support link. Automatic latest BIOS verification is not included. AMD/Intel/OEM GPU releases, chipset bundles, peripheral firmware and control apps can be newer than Windows Update and still need a manufacturer check.
+- Local change history remains available. Exports retain diagnostic inventory, including records hidden from the simplified view; raw hardware/instance IDs are excluded by default.
+- Tests cover different vendors, unknown hardware, mixed GPUs, platform/peripheral matching, cancellation, failures, stale results and narrow layouts. No reference gaming PC is loaded.
 
-See [hardware update coverage, limits and validation](https://github.com/marajdesigns215-dot/tweakerzzz/blob/v0.7.0/docs/HARDWARE_UPDATES.md). CPU support usually comes through chipset and motherboard BIOS updates; ordinary RAM/fans do not have separate performance drivers. This app never flashes firmware.
+See [coverage, limitations and validation](https://github.com/marajdesigns215-dot/tweakerzzz/blob/v0.7.1/docs/HARDWARE_UPDATES.md). No driver installation or firmware flashing is performed.
 
 **Includes the v0.6.4 workflow:** Overview / PC scanner → Drivers & devices → FPS recorder → Restore center → Optimizations → Peripherals → Streaming lab. Display studio, How it works and Updates remain available. Record an After run in the same scene after reviewed changes.
 

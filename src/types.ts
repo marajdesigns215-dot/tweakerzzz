@@ -74,7 +74,7 @@ export interface DriverInstallLog {
 export interface DriverReport {
   hardware: SystemScan; scannedAt: string; warnings: ScanWarning[];
   board: { manufacturer: string; product: string; version: string };
-  computer: { manufacturer: string; model: string }; bios: { manufacturer: string; version: string };
+  computer: { manufacturer: string; model: string; portable?: boolean | null; architecture?: 'x64' | 'arm64' | 'x86' | null }; bios: { manufacturer: string; version: string };
   disks: { model: string; firmware: string }[];
   devices: DriverDevice[]; inventoryComplete?: boolean; inventoryScannedAt?: string; history?: DriverHistory;
   components: HardwareComponent[]; componentsComplete: boolean;
@@ -83,8 +83,15 @@ export interface DriverReport {
 export interface HardwareComponent { id: string; category: string; name: string; values: Record<string, string>; source: string | null; sourceName: string; note: string; deviceIds: string[] }
 export interface DriverUpdateOffers {
   checkedAt: string; complete: boolean; source: string; message: string;
-  packages: { id: string; title: string; description: string; manufacturer: string; model: string; driverClass: string; hardwareId: string; driverDate: string; catalogDate: string; links: { url: string; label: string }[] }[];
+  packages: { id: string; title: string; version?: string; description: string; manufacturer: string; model: string; driverClass: string; hardwareId: string; driverDate: string; catalogDate: string; links: { url: string; label: string }[] }[];
 }
+export interface ComponentUpdateItem {
+  componentId: string; installedVersion: string; installedRaw: string; latestVersion: string;
+  status: 'current' | 'newer' | 'ahead' | 'different' | 'unverified' | 'not-applicable' | 'offered';
+  source: string; date: string; url: string; notes: string; message: string;
+  packages: { deviceId: string; name: string; installedVersion: string; latestVersion: string; title: string; source: string; date: string; url: string; offerId: string; notes: string; comparison: number | null }[];
+}
+export interface ComponentUpdateReport { checkedAt: string; scannedAt: string; branch: 'game-ready' | 'studio'; items: ComponentUpdateItem[]; windowsUpdateError: string }
 export interface UpdateStatus {
   supported: boolean; currentVersion: string;
   phase: 'idle' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'cancelling' | 'downloaded' | 'installing' | 'error';
@@ -101,6 +108,10 @@ declare global {
       installUpdate(): Promise<UpdateStatus>;
       openUpdateRelease(): Promise<void>;
       scanDrivers(): Promise<DriverReport>;
+      checkComponentUpdates(branch: 'game-ready' | 'studio'): Promise<ComponentUpdateReport>;
+      getComponentUpdateStatus(): Promise<{ checking: boolean; result: ComponentUpdateReport | null }>;
+      cancelComponentUpdates(): Promise<void>;
+      openComponentRelease(id: string): Promise<void>;
       getDriverHistory(): Promise<DriverHistory>;
       setDriverMonitoring(enabled: boolean): Promise<DriverHistory>;
       clearDriverHistory(): Promise<DriverHistory>;

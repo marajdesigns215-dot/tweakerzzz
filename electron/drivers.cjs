@@ -43,7 +43,7 @@ function recommendDrivers(report) {
 }
 const queries = {
   board: 'Get-CimInstance Win32_BaseBoard | Select-Object Manufacturer,Product,Version',
-  computer: 'Get-CimInstance Win32_ComputerSystem | Select-Object Manufacturer,Model',
+  computer: 'Get-CimInstance Win32_ComputerSystem | Select-Object Manufacturer,Model,PCSystemType,SystemType',
   bios: "Get-CimInstance Win32_BIOS | Select-Object Manufacturer,SMBIOSBIOSVersion,@{Name='ReleaseDate';Expression={if ($_.ReleaseDate) {$_.ReleaseDate.ToString('yyyy-MM-dd')}}}",
   disks: 'Get-CimInstance Win32_DiskDrive | Select-Object DeviceID,Model,FirmwareRevision,InterfaceType',
   processors: 'Get-CimInstance Win32_Processor | Select-Object DeviceID,Name,Manufacturer,SocketDesignation,NumberOfCores,NumberOfLogicalProcessors',
@@ -61,7 +61,7 @@ function createDriverScanner({ readHardware = scanSystem, run = execute, environ
     entries.forEach(([key], i) => { try { const r = results[i + 1]; if (r.status === 'rejected') throw r.reason; const rows = JSON.parse(r.value.replace(/^\uFEFF/, '')); if (!Array.isArray(rows)) throw new Error('Invalid inventory response'); raw[key] = rows; } catch (e) { raw[key] = []; warnings.push({ component: key, message: String(e.message).slice(0, 2000) }); } });
     const inventoryResult = results.at(-1);
     const inventory = inventoryResult.status === 'fulfilled' ? inventoryResult.value : { devices: [], complete: false, warnings: [{ component: 'device inventory', message: String(inventoryResult.reason.message).slice(0, 2000) }] };
-    const report = { hardware: results[0].value, board: { manufacturer: useful(raw.board[0]?.Manufacturer), product: useful(raw.board[0]?.Product), version: useful(raw.board[0]?.Version) }, computer: { manufacturer: useful(raw.computer[0]?.Manufacturer), model: useful(raw.computer[0]?.Model) }, bios: { manufacturer: useful(raw.bios[0]?.Manufacturer), version: useful(raw.bios[0]?.SMBIOSBIOSVersion) }, disks: raw.disks.map(d => ({ model: text(d.Model), firmware: text(d.FirmwareRevision) })), devices: inventory.devices, inventoryComplete: inventory.complete, inventoryScannedAt: inventory.scannedAt, warnings: [...(results[0].value.warnings || []), ...warnings, ...inventory.warnings], scannedAt: new Date().toISOString() };
+    const report = { hardware: results[0].value, board: { manufacturer: useful(raw.board[0]?.Manufacturer), product: useful(raw.board[0]?.Product), version: useful(raw.board[0]?.Version) }, computer: { manufacturer: useful(raw.computer[0]?.Manufacturer), model: useful(raw.computer[0]?.Model), architecture: /x64/i.test(raw.computer[0]?.SystemType || '') ? 'x64' : /arm64/i.test(raw.computer[0]?.SystemType || '') ? 'arm64' : /x86/i.test(raw.computer[0]?.SystemType || '') ? 'x86' : null, portable: raw.computer[0]?.PCSystemType === 2 ? true : [1,3].includes(raw.computer[0]?.PCSystemType) ? false : null }, bios: { manufacturer: useful(raw.bios[0]?.Manufacturer), version: useful(raw.bios[0]?.SMBIOSBIOSVersion) }, disks: raw.disks.map(d => ({ model: text(d.Model), firmware: text(d.FirmwareRevision) })), devices: inventory.devices, inventoryComplete: inventory.complete, inventoryScannedAt: inventory.scannedAt, warnings: [...(results[0].value.warnings || []), ...warnings, ...inventory.warnings], scannedAt: new Date().toISOString() };
     report.recommendations = recommendDrivers(report);
     return { ...report, components: hardwareComponents(report, raw), componentsComplete: !warnings.length };
   };

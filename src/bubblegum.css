@@ -99,6 +99,22 @@ button.build-tag { cursor: pointer; color: #dfb9d1; font-family: inherit; backgr
 .component-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
 .component-card { min-width: 0; }
 .component-card h3 { margin: 14px 0; overflow-wrap: anywhere; }
+.component-version-panel { margin: 18px 0; padding: 18px; border: 1px solid #915476; background: #1e1028; border-radius: 16px; }
+.component-version-pair { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; margin-bottom: 16px; }
+.component-version-pair span { display: block; font-size: 12px; letter-spacing: .05em; line-height: 1.6; color: #e0c2d7; }
+.component-version-pair strong { display: block; font-size: 25px; color: #ffe135; margin-top: 8px; overflow-wrap: anywhere; }
+.component-version-panel p { margin: 14px 0; }
+.component-version-panel .version-status { white-space: normal; line-height: 1.6; }
+.component-version-panel .version-status.newer { color: #ffe135; border-color: #ffe135; }
+.component-platform { margin: 18px 0; padding: 18px; background: #1e1028; border-radius: 16px; }
+.component-platform p { line-height: 1.7; margin-top: 12px; }
+.component-details > summary, .component-release-notes > summary, .component-package-list > summary { padding: 12px 0; cursor: pointer; font-weight: 600; }
+.component-release-notes p { max-height: 280px; overflow-y: auto; white-space: pre-wrap; line-height: 1.8; }
+.component-package-list article { border-top: 1px solid #714260; margin-top: 15px; padding-top: 15px; }
+.component-check-controls { margin: 22px 0; }
+.component-check-controls .driver-toolbar { margin: 18px 0; }
+.component-check-controls select { max-width: 340px; }
+@media (max-width: 620px) { .component-version-pair { grid-template-columns: 1fr; } }
 .component-card dl, .driver-change-list dl, .device-detail-list { margin: 16px 0; }
 .component-card dl > div, .driver-change-list dl > div, .device-detail-list > div { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(0, 1.4fr); gap: 14px; padding: 9px 0; border-bottom: 1px solid #714260; }
 .component-card dt, .driver-change-list dt, .device-detail-list dt { color: #d9bad2; }

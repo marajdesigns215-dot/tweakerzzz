@@ -1,10 +1,10 @@
-Tweakerzzz 0.7.0 adds hardware update evidence and local change history.
+Tweakerzzz 0.7.1 adds installed/latest driver comparisons and a simpler hardware view.
 
-- Drivers & devices now starts with graphics cards, processors, motherboard, BIOS/UEFI, memory modules, storage firmware and identifiable platform components.
-- Check applicable driver/firmware offers from the PC’s configured Windows Update source. Read published package information and recognized official release links. No driver installation or BIOS flashing is performed.
-- Manufacturer support links help you find exact-model versions and full release notes. No offers does not mean the latest manufacturer BIOS or driver is verified.
-- Complete scans establish a local baseline and record later driver, BIOS, storage firmware and component changes. Optional 15-minute local checks pause during FPS recordings; they are off by default.
-- View retained Windows installation-log evidence, search underlying driver records, and export a report with raw device identifiers excluded by default.
-- Keeps the seven-step workflow, corrected FPS calculations, saved recordings, profiles and backups from v0.6.4.
+- Shows graphics, processors, motherboard, BIOS/UEFI, peripherals and audio. Miscellaneous Windows records are hidden from this view; chipset/platform drivers appear inside the motherboard card.
+- Scan drivers & devices, then Check latest versions. Uses the current PC's hardware IDs and installed versions, including unknown vendors and multiple graphics adapters.
+- NVIDIA GeForce gets official exact-model/Windows Game Ready WHQL or non-beta Studio release checks, with published notes and source status. Windows driver numbering is also shown in NVIDIA's public format.
+- Other drivers use exact device-matched Windows Update offers. Sources and limitations stay visible; missing offers do not mean the latest manufacturer release is installed.
+- BIOS firmware, chipset bundles and peripheral firmware/control-app releases still require checking the exact manufacturer's page. Windows device-driver versions are not firmware versions.
+- Retains local change history, FPS recordings, profiles and backups. Exports can include underlying inventory hidden from the simplified display.
 
-This is an unsigned Windows x64 beta. Use Updates → Check for updates → Download → Review installation → Install & restart. Finish scans, recordings and active Windows operations before installing.
+This is an unsigned Windows x64 beta. Use Updates → Check for updates → Download → Review installation → Install & restart. Finish active scans, recordings and Windows operations before installing.
