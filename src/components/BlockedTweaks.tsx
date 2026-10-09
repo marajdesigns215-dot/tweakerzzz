@@ -10,7 +10,7 @@ export function BlockedTweaks({ blocked, message, remove, busy = false }: { bloc
     <p>{message}</p>
     <ul>{blocked.map(item => <li key={item.id}><strong>{tweaks.find(t => t.id === item.id)?.title ?? item.id}</strong><details><summary>Why this tweak is blocked</summary><pre>{item.message}</pre></details></li>)}</ul>
     {edge && <p>For Edge, open <strong>Settings → System and performance</strong> and look for <strong>Startup boost</strong> and <strong>Continue running background extensions and apps when Microsoft Edge is closed</strong>. If a setting is managed or unavailable, leave it unchanged.</p>}
-    <p>Remove these items, then review and apply the remaining changes. Tweakerzzz does not change registry permissions or override managed settings.</p>
+    <p>Remove these items, then review and apply the remaining changes. Tweakerzzz does not change registry permissions or bypass Windows access restrictions.</p>
     <button className="button secondary" disabled={busy} onClick={remove}><X size={16}/>Remove blocked tweaks</button>
   </section>;
 }
