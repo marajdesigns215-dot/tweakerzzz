@@ -2,7 +2,7 @@
 
 A Windows gaming and content-creation workspace built with React, TypeScript, Vite, and Electron. Start with a hardware scan, review a plan, apply supported settings with a local backup, and compare your actual results.
 
-**Status: v0.6.3 beta build.** Browser workflows and Windows inventory, tweak detection, recommendations, OBS protocol, repeated-run analysis, and registry apply/restore are covered by automated checks. Tagged installers must also pass packaged-file, install, launch, shortcut, and uninstall checks before release. Monitor switching, vendor-specific devices, and actual performance results still need hardware testing. NVIDIA digital vibrance profiles use a native foreground observer with exact-level recovery. Physical NVIDIA color writes still need tester hardware validation; brightness/contrast/warmth and vendor-specific device tuning remain previews or guides.
+**Status: v0.6.4 beta build.** Browser workflows and Windows inventory, tweak detection, recommendations, OBS protocol, repeated-run analysis, and registry apply/restore are covered by automated checks. Tagged installers must also pass packaged-file, install, launch, shortcut, and uninstall checks before release. Monitor switching, vendor-specific devices, and actual performance results still need hardware testing. NVIDIA digital vibrance profiles use a native foreground observer with exact-level recovery. Physical NVIDIA color writes still need tester hardware validation; brightness/contrast/warmth and vendor-specific device tuning remain previews or guides.
 
 No reference PC is preloaded. Every hardware-dependent screen uses the latest native scan or an explicitly labeled imported report. NVIDIA, AMD, Intel, and unrecognized hardware get appropriate vendor guidance or an unknown result. Encoder hints are conservative model-family rules, not a probe of installed encoder support; check availability in your capture software. Missing memory speed and VRAM stay unknown. The Windows desktop build targets Windows x64; support for every device, driver, sensor, or control API is not implied.
 
@@ -32,7 +32,7 @@ Settings have different purposes: some reduce overhead, some improve frame pacin
 
 ## Installer for Windows testers
 
-Download [Tweakerzzz Setup 0.6.3 for Windows x64](https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.6.3/Tweakerzzz-Setup-0.6.3-x64.exe) from the [tester release](https://github.com/marajdesigns215-dot/tweakerzzz/releases/tag/v0.6.3). Close any older Tweakerzzz window and double-click the installer. It installs for the current Windows account and creates desktop and Start menu shortcuts. Testers do **not** need Node.js, npm, a source checkout, or PowerShell launch commands.
+Download [Tweakerzzz Setup 0.6.4 for Windows x64](https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.6.4/Tweakerzzz-Setup-0.6.4-x64.exe) from the [tester release](https://github.com/marajdesigns215-dot/tweakerzzz/releases/tag/v0.6.4). Close any older Tweakerzzz window and double-click the installer. It installs for the current Windows account and creates desktop and Start menu shortcuts. Testers do **not** need Node.js, npm, a source checkout, or PowerShell launch commands.
 
 This is an **unsigned tester build**, so Windows may display an unknown-publisher or SmartScreen notice. Organization-managed policies may require a signed distribution. Uninstall in Windows Settings → Apps; profiles and restore backups are preserved. Read [tester release notes](docs/TESTER_RELEASE.md) for scanning and reporting instructions.
 
@@ -87,6 +87,20 @@ npm run build
 npm run preview
 npm test
 ```
+
+## Recommended workflow
+
+The sidebar and Overview guide follow this order. Overview and PC scanner are adjacent entry points for the first step; all pages remain directly accessible.
+
+1. **Overview / PC scanner:** scan your PC and check the detected hardware.
+2. **Drivers & devices:** review official software for your hardware. Finish any driver changes before recording a baseline.
+3. **FPS recorder:** record a repeatable scene as a Before run.
+4. **Restore center:** save your current settings snapshot. Use the System Protection shortcut if you also want a Windows restore point.
+5. **Optimizations:** review applicable changes, their tradeoffs, and the backup before applying a plan.
+6. **Peripherals:** review detected devices and their settings guides.
+7. **Streaming lab:** configure your streaming or recording workload if needed.
+
+Return to **FPS recorder** for an After run in the same scene. Test one change at a time when identifying what helps. Keep drivers, graphics settings, and the streaming/recording workload consistent when comparing Windows tweaks; use a separate experiment for changes to those conditions. Display studio follows Streaming lab, with How it works and Updates below the main navigation.
 
 ## Apply and restore a plan
 

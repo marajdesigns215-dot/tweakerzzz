@@ -1,4 +1,8 @@
-Download **Tweakerzzz-Setup-0.6.3-x64.exe** below. Quit the old app including its tray icon, then run the installer. No Node/npm or PowerShell launch commands are needed.
+Download **Tweakerzzz-Setup-0.6.4-x64.exe** below. Quit the old app including its tray icon, then run the installer. No Node/npm or PowerShell launch commands are needed.
+
+**New in v0.6.4: your setup workflow.** Navigation now follows Overview / PC scanner → Drivers & devices → FPS recorder → Restore center → Optimizations → Peripherals → Streaming lab. Overview and PC scanner remain adjacent pages. Display studio follows Streaming lab; How it works and Updates remain available below. Overview and How it works include the same seven-step guide, with a reminder to return to FPS recorder for an After run. All tools stay directly accessible. Saved settings and the v0.6.3 FPS calculations are preserved.
+
+**Included from v0.6.3:**
 
 **Fixed: inflated FPS from repeated frame-start rows.** A real capture exposed short CPUWait-only rows sharing the same frame-start timestamps as other rows. Counting both inflated FPS. Application FPS now uses consecutive distinct timestamps for one process/swap chain.
 
