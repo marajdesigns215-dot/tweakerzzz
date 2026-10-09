@@ -38,6 +38,14 @@ async function main() {
     await capture.start({ processName: 'TweakerzzzFrameProbe.exe', seconds: 30, phase: 'before', context: 'Gaming', scenario: 'CI D3D11 WARP frame probe', telemetry: true });
     for (let i = 0; i < 30 && capture.isActive() && capture.status().frames < 120; i++) await delay(500);
     const record = capture.isActive() ? await capture.stop() : (await capture.list())[0];
+    if (record.status !== 'completed') {
+      const raw = await fs.readFile(await capture.csvPath(record.id), 'utf8');
+      const { FrameMetrics } = require('../electron/fps-metrics.cjs');
+      const diagnostic = new FrameMetrics('TweakerzzzFrameProbe.exe'); diagnostic.push(raw); diagnostic.end();
+      throw new Error(JSON.stringify({ error: record.error, collectorWarnings: record.collectorWarnings, independentPresents: probeTimes.length,
+        csvBytes: Buffer.byteLength(raw), firstRows: raw.split(/\r?\n/).slice(0, 5), parsedRows: diagnostic.rows, invalidRows: diagnostic.invalid,
+        streams: [...diagnostic.streams.values()].map(s => ({ intervals: s.values.length, zeroRows: s.zeroRows, generated: s.generated, missingTimestamps: s.missingTimestamps })) }));
+    }
     assert.equal(record.status, 'completed', record.error || JSON.stringify(record));
     assert.ok(Number.isFinite(Date.parse(record.targetCheckedAt)), 'Running target was verified before the trace started');
     assert.ok(record.summary.frames >= 30, 'Real Direct3D frame samples are required.');
