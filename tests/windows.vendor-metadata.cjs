@@ -1,35 +1,29 @@
 'use strict';
-// Read-only provider contract investigation on the supported Windows platform.
-// No drivers, firmware or installers are downloaded; website text is never executed.
-const fs = require('node:fs/promises');
-const pages = {
-  msiApiDefinition: 'https://storage-asset.msi.com/frontend/js/components/product/support/api.js?ver=20220727',
-  msiBiosDefinition: 'https://storage-asset.msi.com/frontend/js/components/product/support/BIOSPanel.js?ver=2025090503',
-};
-async function read(url) {
-  const response = await fetch(url, { signal: AbortSignal.timeout(25000), headers: { 'User-Agent': 'Tweakerzzz/0.7 metadata validation' } });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const data = await response.text(); if (data.length > 4 * 1024 * 1024) throw new Error('Metadata exceeds limit');
-  return data;
-}
-(async () => {
-  const evidence = {};
-  await Promise.allSettled(Object.entries(pages).map(async ([key,url]) => {
-    try {
-      const data = await read(url); evidence[key] = { bytes: data.length, sample: data.slice(0, key.endsWith('Definition') ? 10000 : key === 'nvidiaDriver' || key === 'asusBios' ? 7000 : 1500) };
-      if (key === 'msiBoard') {
-        const inline = [...data.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(s=>/support|bios|product/i.test(s)).join('\n').slice(-20000);
-        for (let i=0;i<inline.length;i+=3000) console.log(`::notice title=MSI support contract ${i/3000}::${inline.slice(i,i+3000).replaceAll('%','%25').replaceAll('\n','%0A').replaceAll('\r','%0D')}`);
-        const scripts = [...data.matchAll(/<script[^>]+src=["']([^"']+)["']/gi)].map(m => new URL(m[1],url)).filter(u => /(^|\.)msi\.com$/.test(u.hostname));
-        evidence[key].scripts = scripts.map(u=>u.href);
-        evidence[key].markers = [...data.matchAll(/.{0,120}(?:getBIOS|getBios|get_bios|Get_Bios|support_ajax|api\/v1|7C95v|product_id).{0,180}/gi)].slice(0,20).map(m=>m[0]);
-        evidence[key].supportScripts = [];
-        for (const script of scripts.filter(u=>/support|product|bundle|main/i.test(u.pathname)).slice(0,8)) {
-          try { const content=await read(script.href); evidence[key].supportScripts.push({url:script.href,markers:[...content.matchAll(/.{0,100}(?:getBIOS|getBios|get_bios|Get_Bios|support_ajax|api\/v1|bios|BIOS).{0,160}/g)].slice(0,25).map(m=>m[0])}); } catch(e) { evidence[key].supportScripts.push({url:script.href,error:String(e)}); }
-        }
-      }
-    } catch(e) { evidence[key] = {error:String(e)}; }
-  }));
-  await fs.mkdir('release/qa',{recursive:true}); await fs.writeFile('release/qa/vendor-metadata.json',JSON.stringify(evidence,null,2));
-  for (const [name,result] of Object.entries(evidence)) console.log(`::notice title=Provider ${name}::${JSON.stringify(result).replaceAll('%','%25').replaceAll('\n','%0A').replaceAll('\r','%0D')}`);
-})().catch(e=>{console.error(e);process.exitCode=1;});
+// Read-only live provider checks with explicit hardware fixtures. This verifies
+// public metadata contracts, not hardware ownership or firmware compatibility.
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const {createVendorLookup,fetchMetadata}=require('../electron/vendor-releases.cjs');
+const evidence=[];
+const sourceBodies=new Map();
+const read=async(url,options)=>{const body=await fetchMetadata(url,options);if(url.includes('msi.com/api/')) sourceBodies.set(url,body);return body;};
+const lookup=createVendorLookup({read});
+const esc=s=>s.replaceAll('%','%25').replaceAll('\n','%0A').replaceAll('\r','%0D');
+(async()=>{
+  assert.equal(process.platform,'win32');
+  const report={hardware:{os:{name:'Microsoft Windows 11 Pro'}},computer:{portable:false},board:{manufacturer:'Micro-Star International Co., Ltd.',product:'B550M PRO-VDH WIFI (MS-7C95)',version:'1.0'}};
+  const graphics=await lookup.nvidia({name:'NVIDIA GeForce RTX 4060',values:{'Installed driver':'32.0.16.1742'}},report,'game-ready');
+  assert.match(graphics.version,/^\d{3,4}\.\d{2}$/);assert.equal(graphics.installed,'617.42');assert.match(graphics.match,/GeForce RTX 4060/);
+  evidence.push({provider:'NVIDIA',...graphics});
+  console.log('::notice title=NVIDIA live contract::'+esc(JSON.stringify({version:graphics.version,installed:graphics.installed,source:graphics.source,match:graphics.match,url:graphics.url})));
+  const bios=await lookup.msi({values:{'BIOS version':'2.L0'}},report);
+  assert.match(bios.version,/^7C95v2/i);assert.match(bios.url,/B550M-PRO-VDH-WIFI\/support#bios$/);
+  evidence.push({provider:'MSI',...bios});
+  console.log('::notice title=MSI live contract::'+esc(JSON.stringify(bios)));
+  await fs.mkdir('release/qa',{recursive:true});await fs.writeFile('release/qa/vendor-metadata.json',JSON.stringify(evidence,null,2));
+  console.log('PASS: official NVIDIA exact-model/Windows driver lookup and MSI exact-model stable BIOS lookup. No packages downloaded or installed.');
+})().catch(e=>{
+  console.error(e);console.log('::error title=Manufacturer contract validation failed::'+esc(String(e.stack || e)));
+  for(const [url,body] of sourceBodies) console.log('::notice title=MSI response schema::'+esc(JSON.stringify({url,sample:body.slice(0,3000)})));
+  process.exitCode=1;
+});
