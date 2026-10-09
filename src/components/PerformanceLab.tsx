@@ -5,15 +5,16 @@ import { compareCaptures } from '../lib/capture-comparison';
 import { tweaks } from '../data/tweaks';
 import { GameAdvisor } from './GameAdvisor';
 import { ObsConnection, TelemetryReport } from './ObsConnection';
-import { gameProfiles } from '../data/game-profiles';
+import { gameProfiles, matchGame, runningGamePrograms } from '../data/game-profiles';
 import { Diagnostics } from './SystemStatus';
+import { RunningProgramPicker } from './RunningProgramPicker';
 
 const format = (value: number | null | undefined, suffix = '') => value == null ? '—' : value.toFixed(1) + suffix;
 const difference = (value: number | null | undefined) => value == null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
 export function PerformanceLab({ hardware, settings, scanHardware, refreshSettings, review, details, restore }: { hardware: SystemScan | null; settings: TweakStatusReport | null; scanHardware: () => Promise<void>; refreshSettings: () => Promise<unknown>; review: (ids: string[]) => void; details: (id: string) => void; restore: () => void }) {
   const native = !!window.tweaker;
   const [options, setOptions] = useState<CaptureOptions>({ processName: '', phase: 'before', context: 'Gaming', seconds: 300, scenario: '' });
-  const [programs, setPrograms] = useState<string[]>([]);
+  const [programs, setPrograms] = useState<string[] | null>(null);
   const [status, setStatus] = useState<CaptureStatus>({ active: false });
   const [records, setRecords] = useState<CaptureRecord[]>([]);
   const [error, setError] = useState('');
@@ -40,6 +41,14 @@ export function PerformanceLab({ hardware, settings, scanHardware, refreshSettin
     try { await fn(); setStatus(await window.tweaker!.captureStatus()); setRecords(await window.tweaker!.listCaptures()); }
     catch (e) { setError(String(e)); } finally { setBusy(false); }
   }
+  async function refreshPrograms() {
+    const running = await window.tweaker!.listPrograms();
+    setPrograms(running);
+    setOptions(previous => {
+      const matches = runningGamePrograms(matchGame(previous.processName), running);
+      return matches.length === 1 ? { ...previous, processName: matches[0] } : previous;
+    });
+  }
   const before = records.find(r => r.id === beforeId);
   const after = records.find(r => r.id === afterId);
   const comparison = before && after ? compareCaptures(before, after) : null;
@@ -65,9 +74,10 @@ export function PerformanceLab({ hardware, settings, scanHardware, refreshSettin
         <div className="button-row"><button className="button primary" disabled={busy || status.stopping || !status.id} onClick={() => action(() => window.tweaker!.stopCapture())}><Square size={16}/>{status.stopping ? 'Finishing…' : 'Stop & save'}</button><button className="button secondary" onClick={() => action(() => window.tweaker!.minimizeToTray())}><Minimize2 size={16}/>Minimize to tray</button></div>
       </> : <>
         <div className="capture-form">
-          <label>GAME PROFILE<select aria-label="Game profile" value={gameProfiles.find(game => game.executables.includes(options.processName.toLowerCase()))?.id ?? 'generic'} onChange={e => { const game = gameProfiles.find(item => item.id === e.target.value)!; setOptions({ ...options, processName: game.executables[0] ?? '' }); }}><option value="generic">Other game / enter an executable</option>{gameProfiles.filter(g => g.id !== 'generic').map(game => <option key={game.id} value={game.id}>{game.name}</option>)}</select></label><p className="fine-print">Choose a known game or its actual executable below. Suggestions follow the selected game and your scan.</p>
-          <label>GAME OR PROGRAM EXECUTABLE<input list="running-programs" placeholder="Example: game.exe" value={options.processName} maxLength={115} onChange={e => setOptions({ ...options, processName: e.target.value })}/><datalist id="running-programs">{programs.map(name => <option key={name} value={name}/>)}</datalist></label>
-          <button className="button secondary" disabled={!native || busy} onClick={() => action(async () => setPrograms(await window.tweaker!.listPrograms()))}><RotateCcw size={16}/>Find running programs</button>
+          <label>GAME PROFILE<select aria-label="Game profile" value={matchGame(options.processName).id} onChange={e => { const game = gameProfiles.find(item => item.id === e.target.value)!; const matches = runningGamePrograms(game, programs ?? []); setOptions({ ...options, processName: matches.length === 1 ? matches[0] : game.executables[0] ?? '' }); }}><option value="generic">Other game / enter an executable</option>{gameProfiles.filter(g => g.id !== 'generic').map(game => <option key={game.id} value={game.id}>{game.name}</option>)}</select></label><p className="fine-print">A game profile suggests an executable name. Launch the game and use Find running programs to confirm the actual process.</p>
+          <label>GAME OR PROGRAM EXECUTABLE<input placeholder="Example: game.exe" value={options.processName} maxLength={115} onChange={e => setOptions({ ...options, processName: e.target.value })}/></label>
+          <button className="button secondary" disabled={!native || busy} onClick={() => action(refreshPrograms)}><RotateCcw size={16}/>Find running programs</button>
+          {programs !== null && <RunningProgramPicker programs={programs} selected={options.processName} onSelect={processName => setOptions(previous => ({ ...previous, processName }))}/>}
           <label>PHASE<select value={options.phase} onChange={e => setOptions({ ...options, phase: e.target.value as CaptureOptions['phase'] })}><option value="before">Before tweaks</option><option value="after">After tweaks</option></select></label>
           <label>WORKLOAD<select value={options.context} onChange={e => setOptions({ ...options, context: e.target.value as CaptureOptions['context'] })}><option>Gaming</option><option>Streaming</option><option>Recording</option></select></label>
           <label>STOP AFTER<select value={options.seconds} onChange={e => setOptions({ ...options, seconds: Number(e.target.value) })}>{[30, 60, 180, 300, 600, 1800, 3600].map(s => <option key={s} value={s}>{s < 60 ? '30 seconds' : `${s / 60} minutes`}</option>)}</select></label>
@@ -106,8 +116,8 @@ export function PerformanceLab({ hardware, settings, scanHardware, refreshSettin
       {record.error && <p className="callout" role="alert">{record.error}</p>}
       {record.summary && <><div className="fps-stats"><div><strong>{format(record.summary.averageFps)}</strong><span>AVERAGE FPS</span></div><div><strong>{format(record.summary.onePercentLow)}</strong><span>1% LOW FPS</span></div><div><strong>{format(record.summary.p95FrameMs, ' ms')}</strong><span>P95 FRAME TIME</span></div></div><p className="fine-print">{record.summary.frames.toLocaleString()} frames · {format(record.summary.sampledSeconds, ' sampled seconds')} · primary process {record.summary.processId} · {record.summary.otherStreamFrames.toLocaleString()} frames from other streams excluded · {record.summary.invalidFrames} invalid/zero intervals excluded.</p></>}
       <TelemetryReport data={record.telemetrySummary}/><p className="fine-print">{record.hardware ? `${record.hardware.cpu.name} · ${record.hardware.gpu.name} · ${record.hardware.memory.totalGB ?? 'Unknown'} GB RAM · GPU driver ${record.hardware.gpu.driverVersion ?? 'unavailable'}` : 'This older run has no hardware snapshot.'}</p>
-      <details><summary>Saved tweak states & collector notes</summary><p className="fine-print">{record.collector} · {record.settings.checkedAt}</p>{record.settings.tweaks.map(t => <div className="snapshot-setting" key={t.id}><span>{tweaks.find(item => item.id === t.id)?.title || t.id}</span><span>{t.status}</span></div>)}{record.collectorWarnings && <pre className="collector-notes">{record.collectorWarnings}</pre>}</details>
-      <div className="button-row"><button className="button secondary" disabled={busy || status.active} onClick={() => setOptions({ processName: record.processName, context: record.context, scenario: record.scenario, seconds: record.seconds, telemetry: record.telemetry, benchmark: record.benchmark ? { ...record.benchmark, verified: false } : undefined, phase: 'after' })}>Use for After run</button><button className="button secondary" disabled={busy} onClick={() => action(() => window.tweaker!.exportCapture(record.id))}><Download size={15}/>Export CSV</button><button className="button secondary" onClick={() => exportSummary(record)}>Export summary</button><button className="icon-button" aria-label={`Delete recording ${record.id}`} disabled={busy} onClick={() => setRemoving(record.id)}><Trash2 size={18}/></button></div>
+      <details><summary>Saved tweak states & collector notes</summary><p className="fine-print">{record.collector} · {record.settings.checkedAt}</p>{record.targetCheckedAt && <p className="fine-print">Target found in running programs: {new Date(record.targetCheckedAt).toLocaleString()}</p>}{record.settings.tweaks.map(t => <div className="snapshot-setting" key={t.id}><span>{tweaks.find(item => item.id === t.id)?.title || t.id}</span><span>{t.status}</span></div>)}{record.collectorWarnings && <pre className="collector-notes">{record.collectorWarnings}</pre>}</details>
+      <div className="button-row"><button className="button secondary" disabled={busy || status.active} onClick={() => setOptions({ processName: record.processName, context: record.context, scenario: record.scenario, seconds: record.seconds, telemetry: record.telemetry, benchmark: record.benchmark ? { ...record.benchmark, verified: false } : undefined, phase: record.status === 'completed' ? 'after' : record.phase })}>{record.status === 'completed' ? 'Use for After run' : 'Retry recording'}</button><button className="button secondary" disabled={busy} onClick={() => action(() => window.tweaker!.exportCapture(record.id))}><Download size={15}/>Export CSV</button><button className="button secondary" onClick={() => exportSummary(record)}>Export summary</button><button className="icon-button" aria-label={`Delete recording ${record.id}`} disabled={busy} onClick={() => setRemoving(record.id)}><Trash2 size={18}/></button></div>
       {removing === record.id && <div className="callout delete-confirm"><p>Delete this local recording and its raw CSV permanently?</p><button className="button secondary" disabled={busy} onClick={() => setRemoving('')}>Keep</button><button className="button secondary" disabled={busy} onClick={() => action(async () => { await window.tweaker!.deleteCapture(record.id); setRemoving(''); })}>Delete recording</button></div>}
     </article>)}</div>
     <details className="panel measurement-notes"><summary>How FPS is measured</summary><p className="body-copy">PresentMon observes Windows graphics events without injecting into games. Results describe application presentation cadence, not displayed FPS or OBS dropped frames. The busiest process/swap chain is selected so menus, overlays, and secondary render streams are not added together. Verify it represents the gameplay you tested.</p><p className="body-copy">Average FPS = 1,000 ÷ mean frame time. The 1% low is 1,000 ÷ the mean of the slowest 1% of frames (at least 100 samples required). P95 is the 95th percentile frame time; lower is better. Pauses and loading screens count, so record the same scene each time.</p><p className="body-copy">Each recording is capped at 60 minutes, 64 MB of CSV, or two million frame samples. Logs remain on your PC until you delete them; exported files are yours to manage. Capture adds some overhead. No FPS gains are guaranteed.</p></details>

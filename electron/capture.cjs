@@ -8,10 +8,11 @@ const { FrameMetrics } = require('./fps-metrics.cjs');
 const spec = require('./presentmon.json');
 const { createTelemetry } = require('./telemetry.cjs');
 const { validateRecord } = require('./capture-records.cjs');
+const processNamePattern = /^[\p{L}\p{N}][\p{L}\p{N} ._()\-]{0,110}\.exe$/iu;
 
 function validateCapture(input) {
   if (!input || typeof input !== 'object') throw new Error('Choose a game and recording settings.');
-  if (typeof input.processName !== 'string' || !/^[\p{L}\p{N}][\p{L}\p{N} ._()\-]{0,110}\.exe$/u.test(input.processName)) throw new Error('Enter an executable name such as game.exe, without a folder path.');
+  if (typeof input.processName !== 'string' || !processNamePattern.test(input.processName)) throw new Error('Enter an executable name such as game.exe, without a folder path.');
   if (!['before', 'after'].includes(input.phase) || !['Gaming', 'Streaming', 'Recording'].includes(input.context)) throw new Error('Choose a before/after phase and workload.');
   if (!Number.isInteger(input.seconds) || input.seconds < 30 || input.seconds > 3600) throw new Error('Choose a recording length between 30 seconds and 60 minutes.');
   if (typeof input.scenario !== 'string' || !input.scenario.trim() || input.scenario.length > 160 || /[\x00-\x1f]/.test(input.scenario)) throw new Error('Name the repeatable scene and graphics settings (up to 160 characters).');
@@ -31,14 +32,19 @@ function validateSessionId(id) {
 function runFile(file, args, timeout = 7000) {
   return new Promise((resolve, reject) => execFile(file, args, { windowsHide: true, shell: false, timeout, maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => error ? reject(new Error(error.killed ? `The Windows query exceeded ${timeout / 1000} seconds. Please retry after Windows finishes starting.` : (stderr || error.message).slice(0, 2000))) : resolve(stdout)));
 }
-async function listPrograms() {
-  const executable = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+async function listPrograms({ run = runFile, environment = process.env } = {}) {
+  const executable = path.join(environment.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
   // Fixed read-only command: no executable names or user input are evaluated.
-  const command = "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); $names = @(Get-Process | Select-Object -ExpandProperty ProcessName -Unique | Sort-Object); [Console]::Out.WriteLine((ConvertTo-Json -InputObject $names -Compress))";
-  const raw = await runFile(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command], 20000);
+  const command = "$ErrorActionPreference = 'Stop'; [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); $names = @(Get-Process | Select-Object -ExpandProperty ProcessName -Unique | Sort-Object); [Console]::Out.WriteLine((ConvertTo-Json -InputObject $names -Compress))";
+  const raw = await run(executable, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command], 20000);
   const names = JSON.parse(raw.replace(/^\uFEFF/, '').trim());
-  if (!Array.isArray(names)) throw new Error('Windows returned an unreadable program list. Enter the executable name manually.');
-  return names.filter(name => typeof name === 'string').slice(0, 1000).map(name => name + '.exe');
+  if (!Array.isArray(names)) throw new Error('Windows returned an unreadable program list. Refresh the running programs and try again.');
+  const seen = new Set();
+  return names.filter(name => typeof name === 'string').map(name => name + '.exe').filter(name => {
+    const key = name.toLowerCase();
+    if (!processNamePattern.test(name) || seen.has(key)) return false;
+    seen.add(key); return true;
+  });
 }
 
 async function verifyCollector(executable) {
@@ -47,7 +53,7 @@ async function verifyCollector(executable) {
     if (crypto.createHash('sha256').update(bytes).digest('hex') !== spec.sha256) throw new Error('The bundled FPS collector failed its integrity check. Reinstall Tweakerzzz.');
 }
 
-function createCaptureManager({ directory, executable, snapshot, readHardware = async () => null, obs, onChange = () => {}, launch = spawn, run = runFile, verify = () => verifyCollector(executable) }) {
+function createCaptureManager({ directory, executable, snapshot, readHardware = async () => null, readPrograms = listPrograms, obs, onChange = () => {}, launch = spawn, run = runFile, verify = () => verifyCollector(executable) }) {
   let current = null, initializing = null, historyWarnings = [];
   const metadataPath = id => path.join(directory, validateSessionId(id) + '.json');
   const csvPath = id => path.join(directory, validateSessionId(id) + '.csv');
@@ -100,13 +106,22 @@ function createCaptureManager({ directory, executable, snapshot, readHardware = 
     current = reservation;
     try {
       await initialize(); await verify();
+      // Presets are hints, not evidence of a running game. Reject missing
+      // targets before creating a recording or starting an ETW session.
+      let programs;
+      try { programs = await readPrograms(); }
+      catch (error) { throw new Error('Could not check the running game. Refresh running programs and try again. ' + error.message); }
+      const processName = programs.find(name => name.toLowerCase() === options.processName.toLowerCase());
+      if (!processName) throw new Error(`${options.processName} is not in the running program list. Launch the game, click Find running programs, and select its actual game executable before recording.`);
+      options.processName = processName;
+      const targetCheckedAt = new Date().toISOString();
       const history = await records();
       if (history.length >= 100) throw new Error('Your 100-recording library is full. Export and delete an old recording before starting another.');
       const [settings, hardwareResult] = await Promise.all([snapshot(), Promise.resolve().then(readHardware).catch(() => null)]);
       const hardware = hardwareResult ? { cpu: hardwareResult.cpu, gpu: hardwareResult.gpu, memory: hardwareResult.memory, os: hardwareResult.os, storage: hardwareResult.storage, scannedAt: hardwareResult.scannedAt, warnings: hardwareResult.warnings || [], peripherals: [] } : null;
       const hardwareKey = hardware ? crypto.createHash('sha256').update(JSON.stringify([hardware.cpu, hardware.gpu, hardware.memory, hardware.os])).digest('hex') : null;
       const id = crypto.randomBytes(16).toString('hex');
-      const record = { version: 1, id, ...options, startedAt: new Date().toISOString(), status: 'recording', collector: 'PresentMon ' + spec.version, settings, hardware, hardwareKey, summary: null, error: '' };
+      const record = { version: 1, id, ...options, targetCheckedAt, startedAt: new Date().toISOString(), status: 'recording', collector: 'PresentMon ' + spec.version, settings, hardware, hardwareKey, summary: null, error: '' };
       await save(record);
       const metrics = new FrameMetrics(options.processName);
       const output = fs.createWriteStream(csvPath(id), { flags: 'wx' });
@@ -129,7 +144,7 @@ function createCaptureManager({ directory, executable, snapshot, readHardware = 
           record.telemetrySummary = telemetry ? await telemetry.stop() : null;
           try { record.settingsEnd = await snapshot(); } catch { record.settingsEnd = null; }
           record.status = code === 0 && !active.error && record.summary ? 'completed' : 'failed';
-          record.error = active.error || (code !== 0 ? (/access denied|privilege|Performance Log Users/i.test(active.stderr) ? 'Windows denied FPS tracing. Close Tweakerzzz, right-click its shortcut, choose Run as administrator for the same Windows account, and try again.' : 'PresentMon exited unexpectedly. ' + active.stderr.trim().slice(0, 1200)) : !record.summary ? 'No frames were captured. Start the game, check its actual .exe name, and keep it rendering during the recording. Some graphics APIs or protected games may not report frames.' : '');
+          record.error = active.error || (code !== 0 ? (/access denied|privilege|Performance Log Users/i.test(active.stderr) ? 'Windows denied FPS tracing. Close Tweakerzzz, right-click its shortcut, choose Run as administrator for the same Windows account, and try again.' : 'PresentMon exited unexpectedly. ' + active.stderr.trim().slice(0, 1200)) : !record.summary ? `No usable frames were captured from ${options.processName}. This process was found before recording. Keep the game running and rendering, then try a short recording. Check Saved tweak states & collector notes for tracing errors. If the game runs elevated, try Tweakerzzz as administrator under the same Windows account. Export the summary and CSV if it still fails; this result alone does not establish an anti-cheat restriction.` : '');
           record.collectorWarnings = active.stderr.trim().slice(0, 2000);
           record.stopReason = active.reason || 'Time limit reached';
           await save(record);

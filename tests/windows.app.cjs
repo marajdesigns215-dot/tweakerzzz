@@ -66,7 +66,20 @@ async function until(fn, label, timeout = 45000) {
     await nav('FPS recorder');
     await waitFor("document.querySelector('.game-advisor')?.textContent.includes('GB RAM')", 'shared hardware in recorder');
     await click('Find running programs');
-    await waitFor("document.querySelectorAll('#running-programs option').length>0", 'real process enumeration');
+    await waitFor("document.querySelectorAll('.running-program-option').length>0", 'real process enumeration');
+    assert.equal(await evaluate("document.querySelectorAll('#running-programs').length"), 0, 'The unusable native autocomplete must not return');
+    const programs = await evaluate('window.tweaker.listPrograms()');
+    const appProcess = programs.find(name => name.toLowerCase() === 'tweakerzzz.exe');
+    assert.ok(appProcess, 'The installed app must appear in the real Windows process list');
+    await evaluate(`(() => { const b=[...document.querySelectorAll('.running-program-picker button')].find(b=>b.textContent.startsWith('All programs')); if(!b)throw Error('All-program filter missing'); b.click(); })()`);
+    await evaluate(`(() => { const input=document.querySelector('.running-program-picker input[type=search]'); if(!input)throw Error('Search missing'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'tweakerzzz'); input.dispatchEvent(new Event('input',{bubbles:true})); })()`);
+    await waitFor(`document.querySelector('.running-program-picker input')?.value==='tweakerzzz' && [...document.querySelectorAll('.running-program-option')].every(b=>b.textContent.toLowerCase().includes('tweakerzzz'))`, 'search filters real running processes');
+    await evaluate(`(() => {const b=[...document.querySelectorAll('.running-program-option')].find(b=>b.getAttribute('aria-label')===${JSON.stringify('Select ')}+${JSON.stringify(appProcess)}); if(!b)throw Error('Real target unavailable'); b.click();})()`);
+    await waitFor(`document.querySelector('input[placeholder="Example: game.exe"]')?.value===${JSON.stringify(appProcess)}`, 'selected real executable');
+    await fs.mkdir('release/qa', { recursive: true });
+    const pickerShot = await send('Page.captureScreenshot', { format: 'png' });
+    await fs.writeFile('release/qa/windows-program-picker.png', Buffer.from(pickerShot.data, 'base64'));
+    await fs.writeFile('release/qa/windows-program-picker.json', JSON.stringify({ processCount: programs.length, selected: appProcess, note: 'Real installed Windows app and process enumeration; no game capture implied.' }, null, 2));
     await nav('Display studio');
     await waitFor("!!document.querySelector('.program-colors')", 'color controls');
     await waitFor("[...document.querySelectorAll('button')].some(b=>b.textContent==='Refresh display modes' && !b.disabled)", 'display-mode query');
@@ -94,7 +107,7 @@ async function until(fn, label, timeout = 45000) {
     await fs.writeFile('release/qa/windows-app.png', Buffer.from(shot.data, 'base64'));
     assert.deepEqual(errors, [], 'Installed app renderer errors');
     await fs.writeFile('release/qa/windows-app.json', JSON.stringify({ completed, detected, display, errors, note: 'Real installed Windows app; no display, color, or registry changes applied.' }, null, 2));
-    console.log('PASS: installed Windows app tabs, live inventory/settings/processes/drivers/peripherals, snapshot, display fallback and streaming profiles; no renderer errors.');
+    console.log('PASS: installed Windows app tabs, searchable real-process selection, live inventory/settings/drivers/peripherals, snapshot, display fallback and streaming profiles; no renderer errors.');
   } finally {
     for (const call of pending.values()) clearTimeout(call.timer);
     socket.terminate();

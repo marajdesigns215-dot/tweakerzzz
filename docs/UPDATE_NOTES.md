@@ -1,13 +1,12 @@
-Tweakerzzz 0.6.1 fixes plans blocked by protected registry keys.
+Tweakerzzz 0.6.2 makes selecting a running game easier and catches missing capture targets.
 
-- Existing keys now request only the access needed to change their values.
-- A permission preflight checks selected tweaks before any preferences change.
-- Blocked tweaks are named in the review with a Remove blocked tweaks button.
-- Review and apply the remaining plan yourself; blocked tweaks are never silently skipped or automatically retried.
-- Edge background mode and startup boost include a manual settings guide when their policy key is protected.
-- Late permission failures still roll back the transaction before offering a smaller plan.
-- Restore center uses the same handling for disabling tweaks and returning to defaults.
+- Find running programs now has text search, a scrollable list and large clickable rows.
+- Recognized games filters known games; All programs includes other games and applications. Search accepts game titles or executable names.
+- The Marvel Rivals preset now uses Marvel-Win64-Shipping.exe. Select the actual running game process if your build differs.
+- Recording checks the live Windows process list before starting. Missing targets produce a clear error without creating an empty recording.
+- Failed or interrupted recordings offer Retry recording and preserve the Before/After phase.
+- Zero-frame results include clearer collector troubleshooting. OBS remains optional.
 
-Windows access restrictions are respected; registry ownership and permissions are left intact. Your profiles, backups and FPS recordings are preserved. This is an unsigned Windows x64 tester build.
+Your profiles, backups and FPS recordings are preserved. This is an unsigned Windows x64 beta installer. Automated Windows checks cover real Direct3D frame capture, installed-app process selection and upgrading from 0.6.1. Live Marvel Rivals capture remains pending verification on a PC running the game; this release does not claim that game-specific test has passed.
 
-On v0.6.0, use Updates → Check for updates → Download → Review installation → Install & restart. Older versions need a manual installer upgrade.
+On v0.6.0 or newer, use Updates → Check for updates → Download → Review installation → Install & restart. Older versions need a manual installer upgrade.

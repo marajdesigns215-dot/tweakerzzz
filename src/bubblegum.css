@@ -77,3 +77,20 @@ button.build-tag { cursor: pointer; color: #dfb9d1; font-family: inherit; backgr
 .blocked-tweaks li { margin-bottom: 16px; }
 .blocked-tweaks details { margin-top: 8px; }
 .blocked-tweaks pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Searchable process selection stays inside the app, with a visible scrollbar. */
+.running-program-picker { grid-column: 1 / -1; min-width: 0; padding: 18px; display: grid; gap: 14px; border: 1px solid #915476; border-radius: 18px; background: #1e1028; }
+.running-program-picker .field-label { display: grid; gap: 9px; min-width: 0; }
+.running-program-picker .button-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 0; }
+.running-program-picker .button[aria-pressed="true"] { border-color: #ffe135; color: #ffe135; }
+.running-program-picker .fine-print { margin: 0; line-height: 1.6; }
+.running-program-results { max-height: 320px; overflow-y: scroll; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-color: #ff4fa3 #35132f; margin: 0; padding: 5px; list-style: none; border: 1px solid #915476; border-radius: 12px; }
+.running-program-results:focus-visible { outline: 2px solid #ffe135; outline-offset: 3px; }
+.running-program-results li + li { margin-top: 7px; }
+.running-program-option { width: 100%; padding: 14px; display: grid; gap: 6px; text-align: left; min-height: 66px; background: #35132f; color: #fff2fa; border: 1px solid transparent; border-radius: 10px; overflow-wrap: anywhere; }
+.running-program-option:hover { background: #45203e; border-color: #ff4fa3; }
+.running-program-option[aria-pressed="true"] { border-color: #ffe135; }
+.running-program-option span { font-size: 14px; color: #e8bbd7; }
+.running-program-results::-webkit-scrollbar { width: 12px; }
+.running-program-results::-webkit-scrollbar-track { background: #35132f; }
+.running-program-results::-webkit-scrollbar-thumb { background: #ff4fa3; border: 3px solid #35132f; border-radius: 10px; }

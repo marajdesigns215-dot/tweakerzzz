@@ -15,6 +15,7 @@ function validateRecord(record, file, validateOptions) {
   validateOptions(record);
   if (!['recording', 'completed', 'failed', 'interrupted'].includes(record.status) || !date(record.startedAt) || !text(record.collector, 100) || !text(record.error, 16000) || !settings(record.settings)) fail();
   if (record.endedAt != null && !date(record.endedAt)) fail();
+  if (record.targetCheckedAt !== undefined && !date(record.targetCheckedAt)) fail();
   if (record.settingsEnd != null && !settings(record.settingsEnd)) fail();
   if (record.hardwareKey != null && !/^[a-f0-9]{64}$/.test(record.hardwareKey)) fail();
   for (const key of ['stopReason', 'collectorWarnings']) if (record[key] != null && !text(record[key], 16000)) fail();

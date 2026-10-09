@@ -7,7 +7,7 @@ const path = require('node:path');
 const { EventEmitter } = require('node:events');
 const { PassThrough } = require('node:stream');
 const { FrameMetrics, csvFields } = require('../electron/fps-metrics.cjs');
-const { createCaptureManager, validateCapture, validateSessionId, verifyCollector } = require('../electron/capture.cjs');
+const { createCaptureManager, validateCapture, validateSessionId, verifyCollector, listPrograms } = require('../electron/capture.cjs');
 const header = 'Application,ProcessID,SwapChainAddress,FrameTime\r\n';
 const row = (ms, pid = 10, chain = '0x123') => `game.exe,${pid},${chain},${ms}\r\n`;
 const options = { processName: 'game.exe', seconds: 30, context: 'Gaming', phase: 'before', scenario: '1080p benchmark' };
@@ -39,10 +39,10 @@ test('collector verification rejects replaced executable bytes', async () => {
   try { const file = path.join(dir, 'bad.exe'); await fs.writeFile(file, 'not the collector'); await assert.rejects(verifyCollector(file), /integrity/); }
   finally { await fs.rm(dir, { recursive: true, force: true }); }
 });
-async function harness() {
+async function harness({ readPrograms = async () => ['game.exe'] } = {}) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'tz-capture-'));
   const children = [], calls = [], stopped = [];
-  const manager = createCaptureManager({ directory, executable: 'bundled.exe', verify: async () => {}, snapshot: async () => ({ checkedAt: new Date().toISOString(), tweaks: [] }),
+  const manager = createCaptureManager({ directory, executable: 'bundled.exe', verify: async () => {}, readPrograms, snapshot: async () => ({ checkedAt: new Date().toISOString(), tweaks: [] }),
     launch(file, args, launchOptions) {
       calls.push({ file, args, options: launchOptions });
       const child = new EventEmitter(); child.stdout = new PassThrough(); child.stderr = new PassThrough(); child.kill = () => child.emit('close', 1); children.push(child); return child;
@@ -55,6 +55,66 @@ async function harness() {
   });
   return { manager, directory, calls, children, stopped, cleanup: () => fs.rm(directory, { recursive: true, force: true }) };
 }
+test('program inventory is a fixed read-only query and returns selectable unique names', async () => {
+  const calls = [];
+  const names = await listPrograms({ environment: { SystemRoot: 'C:\\Windows' }, run: async (...args) => {
+    calls.push(args); return '\uFEFF' + JSON.stringify(['Marvel-Win64-Shipping', 'marvel-win64-shipping', 'Other Game', null, 42, '--help', 'Bad\\Path']);
+  } });
+  assert.deepEqual(names, ['Marvel-Win64-Shipping.exe', 'Other Game.exe']);
+  assert.match(calls[0][1].at(-1), /Get-Process/);
+  assert.ok(!calls[0][1].at(-1).includes('Marvel'));
+  await assert.rejects(listPrograms({ run: async () => '{"unexpected":"object"}' }), /unreadable program list/);
+});
+test('a missing process is rejected without a trace or recording, and the slot is released for retry', async () => {
+  let programs = ['OtherGame.exe'];
+  const h = await harness({ readPrograms: async () => programs });
+  try {
+    await assert.rejects(h.manager.start(options), /game.exe is not in the running program list/);
+    assert.equal(h.calls.length, 0);
+    assert.equal(h.manager.isActive(), false);
+    assert.deepEqual(await fs.readdir(h.directory), []);
+    programs = ['Game.EXE'];
+    const started = await h.manager.start(options);
+    assert.equal(started.processName, 'Game.EXE');
+    assert.ok(Number.isFinite(Date.parse(started.targetCheckedAt)));
+    assert.equal(h.calls[0].args[h.calls[0].args.indexOf('--process_name') + 1], 'Game.EXE');
+    h.children[0].stdout.write(header + row(10).repeat(100));
+    assert.equal((await h.manager.stop()).status, 'completed');
+    assert.equal((await h.manager.list())[0].processName, 'Game.EXE');
+  } finally { await h.cleanup(); }
+});
+test('inventory failures do not become a false claim that a game is absent, and permit retry', async () => {
+  const h = await harness({ readPrograms: async () => { throw new Error('Windows query timed out'); } });
+  try {
+    await assert.rejects(h.manager.start(options), /Could not check the running game.*timed out/);
+    assert.equal(h.manager.isActive(), false);
+    assert.equal(h.calls.length, 0);
+    assert.deepEqual(await h.manager.list(), []);
+  } finally { await h.cleanup(); }
+});
+test('a verified running process without frame events remains unsuccessful with diagnostic context', async () => {
+  const h = await harness();
+  try {
+    await h.manager.start(options);
+    h.children[0].stdout.write(header);
+    h.children[0].stderr.write('Collector diagnostic fixture');
+    h.children[0].emit('close', 0);
+    for (let i = 0; i < 100 && h.manager.isActive(); i++) await new Promise(resolve => setTimeout(resolve, 5));
+    const [record] = await h.manager.list();
+    assert.equal(record.status, 'failed'); assert.equal(record.summary, null);
+    assert.match(record.error, /process was found before recording/);
+    assert.equal(record.collectorWarnings, 'Collector diagnostic fixture');
+    assert.ok(record.targetCheckedAt);
+  } finally { await h.cleanup(); }
+});
+test('Marvel Rivals uses its render executable and running matches are exact and case-insensitive', async () => {
+  const { gameProfiles, matchGame, runningGamePrograms } = await import('../src/data/game-profiles.ts');
+  const game = gameProfiles.find(item => item.id === 'rivals');
+  assert.equal(game.executables[0], 'marvel-win64-shipping.exe');
+  assert.equal(matchGame('Marvel-Win64-Shipping.exe').id, 'rivals');
+  assert.equal(matchGame('MarvelLauncher.exe').id, 'generic');
+  assert.deepEqual(runningGamePrograms(game, ['MarvelLauncher.exe', 'Marvel-Win64-Shipping.exe', 'NotMarvel-Win64-Shipping.exe']), ['Marvel-Win64-Shipping.exe']);
+});
 test('recording lifetime saves raw CSV and snapshot, stops only its own session and deletes by ID', async () => {
   const h = await harness();
   try {

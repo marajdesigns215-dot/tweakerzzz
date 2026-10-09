@@ -2,7 +2,7 @@
 
 A Windows gaming and content-creation workspace built with React, TypeScript, Vite, and Electron. Start with a hardware scan, review a plan, apply supported settings with a local backup, and compare your actual results.
 
-**Status: v0.6.1 development build.** Browser workflows and Windows inventory, tweak detection, recommendations, OBS protocol, repeated-run analysis, and registry apply/restore are covered by automated checks. Tagged installers must also pass packaged-file, install, launch, shortcut, and uninstall checks before release. Monitor switching, vendor-specific devices, and actual performance results still need hardware testing. NVIDIA digital vibrance profiles use a native foreground observer with exact-level recovery. Physical NVIDIA color writes still need tester hardware validation; brightness/contrast/warmth and vendor-specific device tuning remain previews or guides.
+**Status: v0.6.2 beta build.** Browser workflows and Windows inventory, tweak detection, recommendations, OBS protocol, repeated-run analysis, and registry apply/restore are covered by automated checks. Tagged installers must also pass packaged-file, install, launch, shortcut, and uninstall checks before release. Monitor switching, vendor-specific devices, and actual performance results still need hardware testing. NVIDIA digital vibrance profiles use a native foreground observer with exact-level recovery. Physical NVIDIA color writes still need tester hardware validation; brightness/contrast/warmth and vendor-specific device tuning remain previews or guides.
 
 No reference PC is preloaded. Every hardware-dependent screen uses the latest native scan or an explicitly labeled imported report. NVIDIA, AMD, Intel, and unrecognized hardware get appropriate vendor guidance or an unknown result. Encoder hints are conservative model-family rules, not a probe of installed encoder support; check availability in your capture software. Missing memory speed and VRAM stay unknown. The Windows desktop build targets Windows x64; support for every device, driver, sensor, or control API is not implied.
 
@@ -32,7 +32,7 @@ Settings have different purposes: some reduce overhead, some improve frame pacin
 
 ## Installer for Windows testers
 
-Download [Tweakerzzz Setup 0.6.1 for Windows x64](https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.6.1/Tweakerzzz-Setup-0.6.1-x64.exe) from the [tester release](https://github.com/marajdesigns215-dot/tweakerzzz/releases/tag/v0.6.1). Close any older Tweakerzzz window and double-click the installer. It installs for the current Windows account and creates desktop and Start menu shortcuts. Testers do **not** need Node.js, npm, a source checkout, or PowerShell launch commands.
+Download [Tweakerzzz Setup 0.6.2 for Windows x64](https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.6.2/Tweakerzzz-Setup-0.6.2-x64.exe) from the [tester release](https://github.com/marajdesigns215-dot/tweakerzzz/releases/tag/v0.6.2). Close any older Tweakerzzz window and double-click the installer. It installs for the current Windows account and creates desktop and Start menu shortcuts. Testers do **not** need Node.js, npm, a source checkout, or PowerShell launch commands.
 
 This is an **unsigned tester build**, so Windows may display an unknown-publisher or SmartScreen notice. Organization-managed policies may require a signed distribution. Uninstall in Windows Settings → Apps; profiles and restore backups are preserved. Read [tester release notes](docs/TESTER_RELEASE.md) for scanning and reporting instructions.
 
@@ -104,7 +104,7 @@ Display tests are separate from optimization backups. If a tested mode is unread
 ## Background FPS recording
 
 1. Launch your game, then open **FPS recorder**. Choose **Find running programs** or enter the game executable (for example, `game.exe`), not a path or launcher.
-2. Choose **Before tweaks**, Gaming/Streaming/Recording, a time limit, and a scene label that includes your resolution, graphics, and FPS cap. Start OBS separately for streaming/recording tests.
+2. Choose **Before tweaks**, Gaming/Streaming/Recording, a time limit, and a scene label that includes your resolution, graphics, and FPS cap. Start your streaming/recording software separately if that is your workload; OBS is optional.
 3. Start recording and return to the game. **Minimize to tray** or close the window to keep recording. The tray menu can reopen the app, stop recording, or quit. The app does not automatically start at login.
 4. Stop and save, apply a small set of tweaks, sign out/restart if required, then use **Use for After run** to repeat the same workload. Native preference/display changes are blocked during a recording.
 5. Select the matching runs under **Before & after**. CSV exports contain raw PresentMon frame data; summary exports include measurements and the saved tweak states. Repeat runs before attributing differences to a tweak.
@@ -116,6 +116,16 @@ Measurements use PresentMon `FrameTime`, representing application presentation c
 Records and CSVs are stored in `app.getPath('userData')/recordings`. Each run is limited to 60 minutes, 64 MiB of CSV, or two million valid frame samples. Up to 100 runs are retained without automatic deletion; export and delete runs in the app. Logs remain on the PC and survive uninstall. An app crash may leave a timed trace running temporarily; the next visit to FPS recorder attempts cleanup of only this app's interrupted trace IDs and excludes those runs from comparison.
 
 The collector is [Intel PresentMon 2.3.0](https://github.com/GameTechDev/PresentMon/releases/tag/v2.3.0), distributed under the [included MIT license](vendor/presentmon/LICENSE.txt). `npm run prepare:collector` downloads the official executable and verifies the pinned SHA-256 in `electron/presentmon.json`; the installer and runtime verify it again. No arbitrary collector path or runtime download is exposed to the renderer.
+
+### Running-program selection fix (v0.6.2)
+
+**Find running programs** now opens an in-app list with text search, mouse scrolling, and large clickable rows. **Recognized games** filters the presets the app knows; **All programs** includes other games and applications, with recognized games listed first. Search accepts either the executable or its recognized game title. The selected executable is checked against a fresh Windows process list before capture starts; a missing target produces an actionable error without creating an empty recording. A running process is not proof that it is rendering or that tracing will succeed.
+
+The Marvel Rivals preset now uses `Marvel-Win64-Shipping.exe`. The older `marvelrivals-win64-shipping.exe` hint could point at no running process. In an already-installed v0.6.1 build, launch the game and enter its real executable manually; use **Task Manager → Details** to verify it if necessary. The old game-profile dropdown may then display Other game, which does not prevent FPS recording. Try a short capture first. A zero-frame result alone does not establish an anti-cheat restriction; preserve the CSV, summary and collector notes for diagnosis.
+
+Failed/interrupted recordings now offer **Retry recording**, preserving the original Before/After phase. Only completed recordings offer **Use for After run**. Existing recordings remain readable; newer summaries include when the target process was found. These fixes are included in the v0.6.2 installer. Actual Marvel Rivals capture still requires a live game test; follow the [Windows verification procedure](docs/MARVEL_RIVALS_TEST.md).
+
+`python3 tests/ui_program_picker.py` exercises a 154-process list, title/executable search, recognized-game filtering, mouse/keyboard selection, retry behavior and narrow-screen layout using mocked Windows data. Run with the development server, or set `TWEAKER_URL`. `tests/windows.capture.cjs` also checks rejection of a missing process before its real Windows D3D11 capture test; actual Marvel Rivals capture still needs Windows/game validation.
 
 ## Game recommendations and repeated experiments
 
@@ -170,7 +180,7 @@ The browser workflow can also be exercised with `python tests/ui_smoke.py` when 
 
 ## Updating older versions and scan errors
 
-Close every Tweakerzzz window, download the latest GitHub ZIP, and extract it to a new folder. Open a terminal there and run `npm.cmd ci`, `npm.cmd run build`, then `npm.cmd run prepare:color` and `npm.cmd run desktop`. Confirm the header says **v0.6.1**. This release uses larger text, brighter descriptions, and larger buttons/switches across all screens.
+Close every Tweakerzzz window, download the latest GitHub ZIP, and extract it to a new folder. Open a terminal there and run `npm.cmd ci`, `npm.cmd run build`, then `npm.cmd run prepare:color` and `npm.cmd run desktop`. Confirm the header says **v0.6.2**. This release uses larger text, brighter descriptions, and larger buttons/switches across all screens.
 
 The original error “scan.ps1 is not digitally signed” came from Windows marking a downloaded ZIP's scripts as Internet files. v0.2.0 scans and read-only tweak checks do not depend on that script. No PowerShell execution policy needs to change for these reads. **Apply/restore and display changes still use the native script trust policy.** If you trust the ZIP downloaded from your repository, use its **Properties → Unblock → Apply**, then extract it again to a new folder; do not disable organizational policy. An organization that requires signed software may need an approved signed build.
 
@@ -238,7 +248,7 @@ There are no startup checks, automatic downloads, or install-on-quit behavior. T
 
 The release workflow packages the updater, verifies its feed configuration and installer digest, and publishes `latest.yml` and the installer/blockmap assets together. Keep version tags and `package.json` in agreement and retain those assets for future versions. GitHub connectivity is required only when checking or downloading. Failed checks/downloads leave the installed app in place and offer retry/manual download.
 
-Updater unit and IPC tests cover manual controls, concurrent requests, cancellation, failed checks/checksums, active-operation guards, and cleanup before installation. A local HTTP fixture exercises the actual GitHub provider and NSIS downloader, including corrupt-byte rejection and no downgrades; it never executes fixture installer bytes. `tests/ui_updates.py` covers the rendered flow and browser fallback. Isolated Windows CI upgrades the pinned 0.6.0 installer, checks saved-data retention and the new installed version, and walks through the real Updates IPC without automatically contacting GitHub. A future published version is needed to validate the complete public-feed-to-restart path on a tester PC.
+Updater unit and IPC tests cover manual controls, concurrent requests, cancellation, failed checks/checksums, active-operation guards, and cleanup before installation. A local HTTP fixture exercises the actual GitHub provider and NSIS downloader, including corrupt-byte rejection and no downgrades; it never executes fixture installer bytes. `tests/ui_updates.py` covers the rendered flow and browser fallback. Isolated Windows CI upgrades the pinned 0.6.1 installer, checks saved-data retention and the new installed version, and walks through the real Updates IPC without automatically contacting GitHub. Public release checks verify update discovery and checksum-validated downloads; the complete public-feed-to-restart path still requires a tester PC.
 
 
 ## Protected registry keys (v0.6.1)

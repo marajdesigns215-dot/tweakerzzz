@@ -28,10 +28,13 @@ async function main() {
     });
     const programs = await listPrograms(); assert.ok(programs.includes('TweakerzzzFrameProbe.exe'), 'Live program list must find the rendering process: ' + JSON.stringify(programs));
     capture = createCaptureManager({ directory, executable: path.join(__dirname, '..', 'vendor', 'presentmon', spec.file), snapshot: getTweakStatus, readHardware: scanSystem });
+    await assert.rejects(capture.start({ processName: 'TweakerzzzMissingProcessForTest.exe', seconds: 30, phase: 'before', context: 'Gaming', scenario: 'Missing target preflight' }), /not in the running program list/);
+    assert.equal(capture.isActive(), false);
     await capture.start({ processName: 'TweakerzzzFrameProbe.exe', seconds: 30, phase: 'before', context: 'Gaming', scenario: 'CI D3D11 WARP frame probe', telemetry: true });
     for (let i = 0; i < 30 && capture.isActive() && capture.status().frames < 120; i++) await delay(500);
     const record = capture.isActive() ? await capture.stop() : (await capture.list())[0];
     assert.equal(record.status, 'completed', record.error || JSON.stringify(record));
+    assert.ok(Number.isFinite(Date.parse(record.targetCheckedAt)), 'Running target was verified before the trace started');
     assert.ok(record.summary.frames >= 30, 'Real Direct3D frame samples are required.');
     assert.ok(record.summary.averageFps > 0 && Number.isFinite(record.summary.averageFps));
     assert.equal(record.settings.tweaks.length, 22);
