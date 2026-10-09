@@ -3,12 +3,6 @@
 // No drivers, firmware or installers are downloaded; website text is never executed.
 const fs = require('node:fs/promises');
 const pages = {
-  nvidiaProducts: 'https://www.nvidia.com/Download/API/lookupValueSearch.aspx?TypeID=3',
-  nvidiaSeries: 'https://www.nvidia.com/Download/API/lookupValueSearch.aspx?TypeID=2',
-  nvidiaOs: 'https://www.nvidia.com/Download/API/lookupValueSearch.aspx?TypeID=4',
-  nvidiaDriver: 'https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup&pfid=995&osID=135&dch=1&numberOfResults=10&languageCode=1033',
-  msiBoard: 'https://www.msi.com/Motherboard/B550M-PRO-VDH-WIFI/support',
-  asusBios: 'https://rog.asus.com/support/webapi/product/GetPDBIOS?website=global&model=PRIME%20B550M-A&cpu=PRIME%20B550M-A',
   msiApiDefinition: 'https://storage-asset.msi.com/frontend/js/components/product/support/api.js?ver=20220727',
   msiBiosDefinition: 'https://storage-asset.msi.com/frontend/js/components/product/support/BIOSPanel.js?ver=2025090503',
 };
