@@ -5,12 +5,12 @@ import { tweaks } from '../data/tweaks';
 import { recommend } from '../lib/recommendations';
 import { analyzeBenchmarks } from '../lib/benchmark-evidence';
 
-export function GameAdvisor({ options, hardware, settings, records, disabled, scan, review, details, restore }: { options: CaptureOptions; hardware: SystemScan | null; settings: TweakStatusReport | null; records: CaptureRecord[]; disabled: boolean; scan: () => void; review: (ids: string[]) => void; details: (id: string) => void; restore: () => void }) {
+export function GameAdvisor({ options, hardware, hardwareIsSaved = false, settings, records, disabled, scan, review, details, restore }: { options: CaptureOptions; hardware: SystemScan | null; hardwareIsSaved?: boolean; settings: TweakStatusReport | null; records: CaptureRecord[]; disabled: boolean; scan: () => void; review: (ids: string[]) => void; details: (id: string) => void; restore: () => void }) {
   const [usesWindowsCapture, setUsesWindowsCapture] = useState(true);
   const [telemetryId, setTelemetryId] = useState('');
   const matching = records.filter(r => r.status === 'completed' && r.processName.toLowerCase() === options.processName.toLowerCase() && r.context === options.context);
   const telemetryRun = matching.find(r => r.id === telemetryId);
-  const sameHardware = hardware && telemetryRun?.hardware && JSON.stringify([hardware.cpu, hardware.gpu, hardware.memory, hardware.os]) === JSON.stringify([telemetryRun.hardware.cpu, telemetryRun.hardware.gpu, telemetryRun.hardware.memory, telemetryRun.hardware.os]);
+  const sameHardware = !hardwareIsSaved && hardware && telemetryRun?.hardware && JSON.stringify([hardware.cpu, hardware.gpu, hardware.memory, hardware.os]) === JSON.stringify([telemetryRun.hardware.cpu, telemetryRun.hardware.gpu, telemetryRun.hardware.memory, telemetryRun.hardware.os]);
   const advice = recommend({ processName: options.processName, context: options.context, hardware, settings, telemetry: sameHardware ? telemetryRun?.telemetrySummary ?? undefined : undefined, usesWindowsCapture });
   const evidence = analyzeBenchmarks(matching);
   const statusLabel = { improved: 'Repeated improvement', regressed: 'Repeated regression', inconclusive: 'Inconclusive', 'collect-more': 'More runs needed' };
@@ -18,6 +18,7 @@ export function GameAdvisor({ options, hardware, settings, records, disabled, sc
     <div className="section-heading"><div><span className="eyebrow"><Sparkles size={14}/> BUILT FOR YOUR NEXT TEST</span><h2>Game & hardware recommendations</h2></div><button className="button secondary" disabled={!window.tweaker || disabled} onClick={scan}><ScanLine size={16}/>Scan for recommendations</button></div>
     <div className="advisor-profile"><span className="pill lime">{advice.game.name}</span><span className="pill">{options.context}</span><p>{advice.game.note}</p></div>
     <p className="body-copy">{hardware ? `${hardware.cpu.name} · ${hardware.gpu.name} · ${hardware.memory.totalGB ?? 'Unknown'} GB RAM` : 'Scan this PC to add hardware-specific suggestions. Reference or imported specs are not treated as a live scan.'}</p>
+    {hardwareIsSaved && <p className="fine-print">Hardware guidance uses your saved scan. Refresh it before adding measured signals from an earlier run. Starting a new FPS recording checks hardware and settings again.</p>}
     <p className="fine-print">These are local rules and measurements, not predicted FPS gains. Game feature availability depends on the current patch and rendering mode. Current Windows state is checked before applying a plan.</p>
     {options.context !== 'Gaming' && <label className="check-label"><input type="checkbox" checked={usesWindowsCapture} onChange={e => setUsesWindowsCapture(e.target.checked)}/>I use Windows Game Bar recording or background replays</label>}
     <label className="advisor-select">ADD MEASURED SIGNALS FROM A RUN<select value={telemetryId} onChange={e => setTelemetryId(e.target.value)}><option value="">Hardware and workload guidance only</option>{matching.filter(r => r.telemetrySummary).map(r => <option key={r.id} value={r.id}>{r.scenario} · {r.phase} · {new Date(r.startedAt).toLocaleString()}</option>)}</select></label>

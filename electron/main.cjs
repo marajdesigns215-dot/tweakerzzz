@@ -11,6 +11,7 @@ const { getTweakStatus } = require('./tweak-status.cjs');
 const { listBackups } = require('./backups.cjs');
 const { saveSnapshot } = require('./snapshots.cjs');
 const { driverSource } = require('./drivers.cjs');
+const { createHardwareMemory } = require('./hardware-memory.cjs');
 const { createDriverHistory } = require('./driver-history.cjs');
 const { readDriverInstallLog } = require('./driver-install-log.cjs');
 const { createDriverUpdateChecker } = require('./driver-updates.cjs');
@@ -22,7 +23,8 @@ const collector = require('./presentmon.json');
 const { createUpdateManager, RELEASES_URL } = require('./updates.cjs');
 const { createObsClient } = require('./obs.cjs');
 const obs = createObsClient();
-let capture, tray, captureStart, colors, updates, drivers, driverUpdates, componentUpdates, lastDriverReport;
+let capture, tray, captureStart, colors, updates, drivers, driverUpdates, componentUpdates, lastDriverReport, hardwareMemory;
+let hardwareGeneration = 0;
 
 let window;
 let nativeBusy = false;
@@ -224,8 +226,10 @@ function registerHandlers() {
   handle('tweaker:update-cancel', () => updates.cancel());
   handle('tweaker:update-install', () => updates.install());
   handle('tweaker:update-release', () => shell.openExternal(RELEASES_URL));
-  handle('tweaker:scan', () => scanSystem());
-  handle('tweaker:drivers', async () => { ensureNotRecording(); componentUpdates.invalidate(); lastDriverReport=null; const report=await drivers.scan(); lastDriverReport=report; return report; });
+  handle('tweaker:hardware-memory', async () => { const generation=hardwareGeneration; const saved=await hardwareMemory.load(); if(generation===hardwareGeneration && !hardwareMemory.isBusy() && !lastDriverReport) lastDriverReport=saved.drivers; return saved; });
+  handle('tweaker:hardware-forget', async () => { componentUpdates.invalidate(); ++hardwareGeneration; lastDriverReport=null; return hardwareMemory.clear(); });
+  handle('tweaker:scan', () => { ensureNotRecording(); componentUpdates.invalidate(); ++hardwareGeneration; lastDriverReport=null; return hardwareMemory.scan('system',scanSystem); });
+  handle('tweaker:drivers', async () => { ensureNotRecording(); componentUpdates.invalidate(); lastDriverReport=null; const generation=++hardwareGeneration; const report=await hardwareMemory.scan('drivers',()=>drivers.scan()); if(generation===hardwareGeneration) lastDriverReport=report; return report; });
   handle('tweaker:driver-history', () => drivers.status());
   handle('tweaker:driver-monitor', enabled => drivers.setMonitor(enabled));
   handle('tweaker:driver-history-clear', () => drivers.clear());
@@ -243,7 +247,7 @@ function registerHandlers() {
   handle('tweaker:color-save', config => exclusive(() => { ensureNotRecording(); return colors.save(config); }));
   handle('tweaker:color-start', () => exclusive(() => { ensureNotRecording(); if (pendingDisplay) throw new Error('Finish the resolution test first.'); return colors.start(); }));
   handle('tweaker:color-stop', () => exclusive(() => colors.stop()));
-  handle('tweaker:peripherals', () => scanPeripherals());
+  handle('tweaker:peripherals', () => { ensureNotRecording(); return hardwareMemory.scan('peripherals',scanPeripherals); });
   handle('tweaker:status', () => {
     if (!statusRequest) statusRequest = exclusive(() => getTweakStatus()).finally(() => { statusRequest = null; });
     return statusRequest;
@@ -269,7 +273,7 @@ function registerHandlers() {
   handle('tweaker:capture-start', input => {
     captureStart = exclusive(() => {
       if (pendingDisplay) throw new Error('Finish the display test before recording.');
-      if (drivers?.isBusy() || driverUpdates?.isBusy() || componentUpdates?.isBusy()) throw new Error('Wait for the hardware or driver update check to finish before recording FPS.');
+      if (hardwareMemory?.isBusy() || drivers?.isBusy() || driverUpdates?.isBusy() || componentUpdates?.isBusy()) throw new Error('Wait for the hardware or driver update check to finish before recording FPS.');
       return capture.start(input);
     }).finally(() => { captureStart = null; });
     return captureStart;
@@ -349,6 +353,7 @@ else {
     showWindow();
   });
   app.whenReady().then(() => {
+    hardwareMemory = createHardwareMemory({ directory:path.join(app.getPath('userData'),'hardware-memory') });
     colors = createColorManager({
       directory: path.join(app.getPath('userData'), 'display-colors'),
       executable: app.isPackaged ? path.join(process.resourcesPath, 'color', 'Tweakerzzz.Color.exe') : path.join(__dirname, '..', 'build', 'color', 'Tweakerzzz.Color.exe'),
@@ -364,7 +369,7 @@ else {
       engine: app.isPackaged && process.platform === 'win32' ? require('electron-updater').autoUpdater : null,
       currentVersion: app.getVersion(),
       prepareInstall: async () => {
-        if (nativeBusy || captureStart || drivers?.isBusy() || driverUpdates?.isBusy() || componentUpdates?.isBusy()) throw new Error('Wait for the current Windows operation to finish, then install again.');
+        if (nativeBusy || captureStart || hardwareMemory?.isBusy() || drivers?.isBusy() || driverUpdates?.isBusy() || componentUpdates?.isBusy()) throw new Error('Wait for the current Windows operation to finish, then install again.');
         if (capture?.isActive()) throw new Error('Stop the FPS recording before installing. Your saved runs will be kept.');
         if (pendingDisplay) throw new Error('Finish or cancel the resolution test before installing.');
         if (colors?.isActive() || colors?.hasRecoveryPending()) throw new Error('Stop color profiles and restore the display in Display studio before installing.');
@@ -387,6 +392,6 @@ app.on('before-quit', event => {
   if (quitting) return;
   quitting = true;
   event.preventDefault();
-  Promise.resolve(captureStart).catch(() => {}).then(() => Promise.allSettled([revertDisplay(), capture?.stop(), colors?.close(), drivers?.close(), driverUpdates?.close(), componentUpdates?.close()])).finally(() => app.quit());
+  Promise.resolve(captureStart).catch(() => {}).then(() => Promise.allSettled([revertDisplay(), capture?.stop(), colors?.close(), drivers?.close(), driverUpdates?.close(), componentUpdates?.close(), hardwareMemory?.close()])).finally(() => app.quit());
 });
 app.on('window-all-closed', () => app.quit());

@@ -1,10 +1,11 @@
-Tweakerzzz 0.7.1 adds installed/latest driver comparisons and a simpler hardware view.
+Tweakerzzz 0.7.2 remembers your PC between launches.
 
-- Shows graphics, processors, motherboard, BIOS/UEFI, peripherals and audio. Miscellaneous Windows records are hidden from this view; chipset/platform drivers appear inside the motherboard card.
-- Scan drivers & devices, then Check latest versions. Uses the current PC's hardware IDs and installed versions, including unknown vendors and multiple graphics adapters.
-- NVIDIA GeForce gets official exact-model/Windows Game Ready WHQL or non-beta Studio release checks, with published notes and source status. Windows driver numbering is also shown in NVIDIA's public format.
-- Other drivers use exact device-matched Windows Update offers. Sources and limitations stay visible; missing offers do not mean the latest manufacturer release is installed.
-- BIOS firmware, chipset bundles and peripheral firmware/control-app releases still require checking the exact manufacturer's page. Windows device-driver versions are not firmware versions.
-- Retains local change history, FPS recordings, profiles and backups. Exports can include underlying inventory hidden from the simplified display.
+- Successful PC, driver and peripheral scans are saved locally and restored automatically. Scan once in this version; subsequent launches reuse that report without another hardware scan.
+- Saved reports show their original scan date. Rescan after hardware or driver changes; online latest-version checks remain manual.
+- Drivers & devices keeps its report when switching tabs.
+- PC scanner → Forget saved scan clears remembered reports while keeping recordings, profiles, backups and change history.
+- Imported reports cannot replace your remembered PC. Damaged files, failed writes and scans arriving out of order are handled without silently replacing newer results.
+- FPS recordings still collect fresh hardware and settings. Windows tweak detection remains live.
+- Includes the installed/latest driver comparisons and hardware filtering from 0.7.1.
 
 This is an unsigned Windows x64 beta. Use Updates → Check for updates → Download → Review installation → Install & restart. Finish active scans, recordings and Windows operations before installing.

@@ -113,6 +113,7 @@ async function nativeHarness({ singleInstance = true, updaterEngine = null } = {
     if (id === './updates.cjs') return { ...require('../electron/updates.cjs'), createUpdateManager: options => require('../electron/updates.cjs').createUpdateManager({ ...options, engine: updaterEngine }) };
     if (id === './snapshots.cjs') return { saveSnapshot: async (_directory, ids) => ({ backupId: 'a'.repeat(32), applied: ids }) };
     if (id === './drivers.cjs') return { scanDrivers: async () => ({ recommendations: [] }), driverSource: require('../electron/drivers.cjs').driverSource };
+    if (id === './hardware-memory.cjs') return { createHardwareMemory: () => ({ load:async()=>({system:null,drivers:null,peripherals:null,warning:''}),scan:async(_kind,task)=>task(),clear:async()=>({}),isBusy:()=>false,close:async()=>{} }) };
     if (id === './driver-history.cjs') return { createDriverHistory: () => drivers };
     if (id === './driver-install-log.cjs') return { readDriverInstallLog: async () => ({ available: true, entries: [] }) };
     if (id === './component-updates.cjs') return { createComponentUpdateChecker: () => componentUpdates };

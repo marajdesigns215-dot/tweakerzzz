@@ -39,6 +39,8 @@ contextBridge.exposeInMainWorld('tweaker', Object.freeze({
   reanalyzeCapture: id => ipcRenderer.invoke('tweaker:capture-reanalyze', id),
   exportCapture: id => ipcRenderer.invoke('tweaker:capture-export', id),
   minimizeToTray: () => ipcRenderer.invoke('tweaker:hide'),
+  getHardwareMemory: () => ipcRenderer.invoke('tweaker:hardware-memory'),
+  forgetHardwareMemory: () => ipcRenderer.invoke('tweaker:hardware-forget'),
   scan: () => ipcRenderer.invoke('tweaker:scan'),
   scanPeripherals: () => ipcRenderer.invoke('tweaker:peripherals'),
   getTweakStatus: () => ipcRenderer.invoke('tweaker:status'),

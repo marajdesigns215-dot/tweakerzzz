@@ -183,3 +183,11 @@ button.build-tag { cursor: pointer; color: #dfb9d1; font-family: inherit; backgr
 .recalculate-report { margin: 18px 0; }
 @media (max-width: 1000px) { .diagnostic-cards { grid-template-columns: 1fr; } }
 @media (max-width: 620px) { .fps-timeline { padding: 12px; } .frame-details { grid-template-columns: 1fr; } }
+
+/* Remembered inventory is dated and separate from live Windows state. */
+.saved-hardware-note { margin: 0 0 24px; align-items: center; }
+.saved-hardware-note > div { flex: 1; min-width: 0; }
+.saved-hardware-note .button { flex-shrink: 0; }
+.hardware-memory-controls { margin: 20px 0; }
+.hardware-memory-controls > p { color: var(--muted); line-height: 1.7; }
+@media (max-width: 620px) { .saved-hardware-note { flex-wrap: wrap; } .saved-hardware-note > div { flex-basis: 80%; } }

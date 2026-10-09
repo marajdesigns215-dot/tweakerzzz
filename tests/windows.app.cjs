@@ -54,6 +54,24 @@ async function until(fn, label, timeout = 45000) {
     await send('Runtime.enable'); await send('Page.enable');
     await waitFor("document.querySelector('h1')?.textContent==='Make every frame pop.'", 'app load');
     await waitFor("document.querySelector('.windows-status-bar')?.textContent.includes('22 automatic tweaks')", 'live Windows state');
+    if (process.argv.includes('--relaunch')) {
+      const expected = JSON.parse(await fs.readFile('release/qa/windows-memory-expected.json', 'utf8'));
+      await waitFor("document.querySelector('.saved-hardware-note')?.textContent.includes('Using a saved scan')", 'saved scan after app restart');
+      const saved = await evaluate('window.tweaker.getHardwareMemory()');
+      assert.deepEqual(saved, expected, 'Full restart must restore the original reports and timestamps without rescanning');
+      await nav('Drivers & devices');
+      await waitFor("document.querySelectorAll('.component-card').length>0 && document.querySelector('main').textContent.includes('Saved driver scan')", 'driver cards restored after restart');
+      await nav('PC scanner');
+      await waitFor("document.querySelector('.scan-banner')?.textContent.includes('Saved native scan')", 'saved PC scan');
+      await click('Forget saved scan'); await click('Forget this PC');
+      await waitFor("document.querySelector('.scan-banner')?.textContent.includes('SCAN NEEDED')", 'forget saved scan');
+      const cleared = await evaluate('window.tweaker.getHardwareMemory()');
+      assert.deepEqual(cleared, {system:null,drivers:null,peripherals:null,warning:''});
+      assert.deepEqual(errors, [], 'Restored app renderer errors');
+      await fs.writeFile('release/qa/windows-memory-restart.json', JSON.stringify({restored:true,forgotten:true,originalScanAt:saved.system.scannedAt,errors},null,2));
+      console.log('PASS: full installed-app restart restores PC, driver and peripheral reports with unchanged timestamps; Forget clears the saved scan.');
+      return;
+    }
     await nav('Overview');
     await nav('Optimizations');
     await evaluate("document.querySelector('[aria-label=\"Details for Windows Game Mode\"]').click()");
@@ -106,6 +124,10 @@ async function until(fn, label, timeout = 45000) {
     await nav('Peripherals'); await click('Scan devices');
     await waitFor("[...document.querySelectorAll('button')].some(b=>b.textContent.trim()==='Scan devices' && !b.disabled)", 'peripheral scan');
     assert.equal(await evaluate("!!document.querySelector('[role=alert]')"), false, 'Peripheral scan failed');
+    const remembered = await evaluate('window.tweaker.getHardwareMemory()');
+    assert.equal(remembered.warning, '');
+    assert.ok(remembered.system && remembered.drivers && remembered.peripherals, 'All three native reports must be saved');
+    await fs.writeFile('release/qa/windows-memory-expected.json', JSON.stringify(remembered));
     await nav('Streaming lab');
     for (const name of ['Twitch', 'YouTube', 'Recording']) { await click(name); await waitFor(`document.querySelector('.obs-panel .pill')?.textContent===${JSON.stringify(name)}`, name + ' profile'); }
     await nav('Updates');

@@ -9,6 +9,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { saveSnapshot } = require('../electron/snapshots.cjs');
 const { scanDrivers } = require('../electron/drivers.cjs');
+const { createHardwareMemory } = require('../electron/hardware-memory.cjs');
 const { createDriverHistory } = require('../electron/driver-history.cjs');
 const { readDriverInstallLog } = require('../electron/driver-install-log.cjs');
 const { createDriverUpdateChecker } = require('../electron/driver-updates.cjs');
@@ -43,6 +44,18 @@ const { createDriverUpdateChecker } = require('../electron/driver-updates.cjs');
   assert.ok(drivers.devices.length > 0);
   assert.ok(drivers.devices.some(d => d.driverReported && d.provider && d.version), 'A real provider/version pair must be reported.');
   for (const category of ['Processor', 'Graphics', 'Motherboard', 'BIOS / UEFI']) assert.ok(drivers.components.some(c => c.category === category), category + ' detection');
+  const memoryDirectory = await fs.mkdtemp(path.join(os.tmpdir(),'tz-hardware-memory-'));
+  let memory = createHardwareMemory({directory:memoryDirectory});
+  try {
+    const remembered = await memory.scan('drivers',async()=>drivers);
+    assert.ok(!remembered.warnings.some(w=>w.component==='Saved scan'),JSON.stringify(remembered.warnings));
+    await memory.close(); memory=createHardwareMemory({directory:memoryDirectory});
+    const loaded=await memory.load(); assert.equal(loaded.warning,'');
+    assert.deepEqual(loaded.system,drivers.hardware);assert.deepEqual(loaded.drivers.components,drivers.components);
+    assert.deepEqual(loaded.peripherals.peripherals,drivers.hardware.peripherals);
+    console.log('PASS: real Windows installation binding and native inventory survive reopening without another scan.');
+    await memory.clear();assert.equal((await memory.load()).system,null);
+  } finally {await memory.close();await fs.rm(memoryDirectory,{recursive:true,force:true});}
   const historyDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'tz-driver-history-'));
   let manager = createDriverHistory({ directory: historyDirectory, fullScan: async () => drivers });
   try {

@@ -80,6 +80,7 @@ export interface DriverReport {
   components: HardwareComponent[]; componentsComplete: boolean;
   recommendations: { id: string; category: string; title: string; device: string; source: string | null; sourceName: string; reason: string; note: string; confidence: string }[];
 }
+export interface HardwareMemory { system: SystemScan | null; drivers: DriverReport | null; peripherals: PeripheralScan | null; warning: string }
 export interface HardwareComponent { id: string; category: string; name: string; values: Record<string, string>; source: string | null; sourceName: string; note: string; deviceIds: string[] }
 export interface DriverUpdateOffers {
   checkedAt: string; complete: boolean; source: string; message: string;
@@ -107,6 +108,8 @@ declare global {
       cancelUpdate(): Promise<UpdateStatus>;
       installUpdate(): Promise<UpdateStatus>;
       openUpdateRelease(): Promise<void>;
+      getHardwareMemory(): Promise<HardwareMemory>;
+      forgetHardwareMemory(): Promise<HardwareMemory>;
       scanDrivers(): Promise<DriverReport>;
       checkComponentUpdates(branch: 'game-ready' | 'studio'): Promise<ComponentUpdateReport>;
       getComponentUpdateStatus(): Promise<{ checking: boolean; result: ComponentUpdateReport | null }>;

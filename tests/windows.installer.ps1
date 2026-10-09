@@ -11,15 +11,15 @@ $application = Join-Path $directory 'Tweakerzzz.exe'
 $process = $null
 try {
     # Verify a real upgrade from the last released build, with pinned artifact bytes.
-    $baseline = Join-Path $env:RUNNER_TEMP 'Tweakerzzz-Setup-0.7.0-x64.exe'
-    Invoke-WebRequest -UseBasicParsing -TimeoutSec 180 -Uri 'https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.7.0/Tweakerzzz-Setup-0.7.0-x64.exe' -OutFile $baseline
-    if ((Get-FileHash -LiteralPath $baseline -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'f27df223d531b800b6e330f4ec9421f4c2902853599fcdaeffc0f27288a24746') { throw 'Baseline installer checksum mismatch.' }
+    $baseline = Join-Path $env:RUNNER_TEMP 'Tweakerzzz-Setup-0.7.1-x64.exe'
+    Invoke-WebRequest -UseBasicParsing -TimeoutSec 180 -Uri 'https://github.com/marajdesigns215-dot/tweakerzzz/releases/download/v0.7.1/Tweakerzzz-Setup-0.7.1-x64.exe' -OutFile $baseline
+    if ((Get-FileHash -LiteralPath $baseline -Algorithm SHA256).Hash.ToLowerInvariant() -ne '4bd85d0ee3c8ba7d03bb981ada7d169e495d96b41a9070c3e935498f8050fccd') { throw 'Baseline installer checksum mismatch.' }
     $oldInstall = Start-Process -FilePath $baseline -ArgumentList @('/S', "/D=$directory") -Wait -PassThru
     if ($oldInstall.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $application)) { throw 'Baseline installation failed.' }
-    if ((Get-Item -LiteralPath $application).VersionInfo.ProductVersion -notlike '0.7.0*') { throw 'Baseline application version mismatch.' }
+    if ((Get-Item -LiteralPath $application).VersionInfo.ProductVersion -notlike '0.7.1*') { throw 'Baseline application version mismatch.' }
     $dataRoot = Join-Path $env:APPDATA 'tweakerzzz'
     $sentinels = @()
-    foreach ($folder in @('backups', 'recordings', 'display-colors', 'driver-history')) {
+    foreach ($folder in @('backups', 'recordings', 'display-colors', 'driver-history', 'hardware-memory')) {
         $destination = Join-Path $dataRoot $folder
         $null = New-Item -ItemType Directory -Path $destination -Force
         $sentinel = Join-Path $destination 'update-qa-preserve.txt'
@@ -32,7 +32,7 @@ try {
     foreach ($sentinel in $sentinels) {
         if ((Get-Content -LiteralPath $sentinel -Raw).Trim() -ne 'Preserve saved tester data') { throw 'The upgrade changed saved data.' }
     }
-    Write-Output 'PASS: verified 0.7.0 installation upgrades to the new version and preserves backup/recording/color/driver-history data.'
+    Write-Output 'PASS: verified 0.7.1 installation upgrades to the new version and preserves backup/recording/color/driver-history/hardware-memory data.'
     foreach ($resource in @('resources\app.asar', 'resources\windows\tweaks.json', 'resources\windows\tweaks.ps1', 'resources\windows\display.ps1')) {
         if (-not (Test-Path -LiteralPath (Join-Path $directory $resource))) { throw "Missing installed resource: $resource" }
     }
@@ -55,6 +55,11 @@ try {
     Write-Output 'PASS: installed executable launches a desktop window without Node.js/npm commands; packaged resources and shortcuts exist.'
     node tests/windows.app.cjs $debugPort
     if ($LASTEXITCODE -ne 0) { throw 'The installed Windows app walkthrough failed.' }
+    $null = $process.CloseMainWindow()
+    if (-not $process.WaitForExit(15000)) { throw 'The app did not quit cleanly before saved-scan validation.' }
+    $process = Start-Process -FilePath $application -ArgumentList @("--remote-debugging-port=$debugPort", '--remote-debugging-address=127.0.0.1', "--user-data-dir=`"$profileDirectory`"") -PassThru
+    node tests/windows.app.cjs $debugPort --relaunch
+    if ($LASTEXITCODE -ne 0) { throw 'Saved hardware did not survive the installed app restart.' }
 } finally {
     if ($process -and -not $process.HasExited) {
         $null = $process.CloseMainWindow()

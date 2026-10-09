@@ -13,7 +13,7 @@ import { RunningProgramPicker } from './RunningProgramPicker';
 
 const format = (value: number | null | undefined, suffix = '') => value == null ? '—' : value.toFixed(1) + suffix;
 const difference = (value: number | null | undefined) => value == null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
-export function PerformanceLab({ hardware, settings, scanHardware, refreshSettings, review, details, restore }: { hardware: SystemScan | null; settings: TweakStatusReport | null; scanHardware: () => Promise<void>; refreshSettings: () => Promise<unknown>; review: (ids: string[]) => void; details: (id: string) => void; restore: () => void }) {
+export function PerformanceLab({ hardware, hardwareIsSaved = false, settings, scanHardware, refreshSettings, review, details, restore }: { hardware: SystemScan | null; hardwareIsSaved?: boolean; settings: TweakStatusReport | null; scanHardware: () => Promise<void>; refreshSettings: () => Promise<unknown>; review: (ids: string[]) => void; details: (id: string) => void; restore: () => void }) {
   const native = !!window.tweaker;
   const [options, setOptions] = useState<CaptureOptions>({ processName: '', phase: 'before', context: 'Gaming', seconds: 300, scenario: '' });
   const [programs, setPrograms] = useState<string[] | null>(null);
@@ -94,7 +94,7 @@ export function PerformanceLab({ hardware, settings, scanHardware, refreshSettin
         <button className="button primary" disabled={!native || busy || !options.processName || !options.scenario.trim() || !!benchmarkInvalid} onClick={() => action(() => window.tweaker!.startCapture(options))}>{busy ? <LoaderCircle className="spin" size={16}/> : <Play size={16}/>}Start background recording</button>
       </>}
     </section>
-    <GameAdvisor options={options} hardware={hardware} settings={settings} records={records} disabled={busy || status.active} scan={() => action(async () => { await scanHardware(); await refreshSettings(); })} review={review} details={details} restore={restore}/>
+    <GameAdvisor options={options} hardware={hardware} hardwareIsSaved={hardwareIsSaved} settings={settings} records={records} disabled={busy || status.active} scan={() => action(async () => { await scanHardware(); await refreshSettings(); })} review={review} details={details} restore={restore}/>
     <section className="panel comparison-panel"><h2>Before & after</h2><p className="body-copy">Select completed runs of the same executable, workload, and scene. The After run must be newer.</p><div className="capture-form">
       <label>BEFORE RUN<select value={beforeId} onChange={e => setBeforeId(e.target.value)}><option value="">Select a baseline</option>{optionsFor('before').map(r => <option key={r.id} value={r.id}>{r.processName} · {r.scenario} · {new Date(r.startedAt).toLocaleString()}</option>)}</select></label>
       <label>AFTER RUN<select value={afterId} onChange={e => setAfterId(e.target.value)}><option value="">Select a newer run</option>{optionsFor('after').map(r => <option key={r.id} value={r.id}>{r.processName} · {r.scenario} · {new Date(r.startedAt).toLocaleString()}</option>)}</select></label>

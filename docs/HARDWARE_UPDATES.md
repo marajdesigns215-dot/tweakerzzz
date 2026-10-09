@@ -13,7 +13,7 @@ In **Drivers & devices**, choose **Scan drivers & devices → Check latest versi
 | BIOS / UEFI | Actual SMBIOS firmware version and date | Manufacturer/OEM support page. Automatic latest firmware verification is not included. A Windows firmware package's driver version is not treated as the BIOS version. |
 | Peripherals / audio | Identified Windows device-driver versions | Exact Windows Update matches plus recognized manufacturer links. These are separate from device firmware and optional control-app versions. |
 
-Every comparison uses the current native scan; the renderer cannot submit a different PC's report or an arbitrary lookup URL. Exact product/hardware IDs, OS, branch and laptop/desktop distinctions matter. Unknown or ambiguous models fail closed. Changing the NVIDIA branch or rescanning hides old comparisons. Rechecking clears stale results, cancellation does not commit partial results, and one failed provider does not erase another provider's verified result.
+Every comparison uses the displayed native scan (including a dated saved scan); the renderer cannot submit a different PC's report or an arbitrary lookup URL. Rescan after hardware, OS or driver changes before comparing installed versions. Exact product/hardware IDs, OS, branch and laptop/desktop distinctions matter. Unknown or ambiguous models fail closed. Changing the NVIDIA branch or rescanning hides old comparisons. Rechecking clears stale results, cancellation does not commit partial results, and one failed provider does not erase another provider's verified result.
 
 Manufacturer metadata is requested only after **Check latest versions**. Requests have an exact-host allowlist, HTTPS, time and size limits, no redirects/cookies, and no executable downloads. Manufacturer lookups send catalog model/OS/branch identifiers, not serial numbers or full instance IDs. Release notes are rendered as plain text. The retained latest check is in memory until another check/app exit and can be exported with its timestamp. Exact public NVIDIA site contracts can change; failures stay unverified rather than marking a device up to date.
 
@@ -62,3 +62,10 @@ Windows CI separately validates real CIM queries, baseline persistence and a sec
 - [SetupAPI device installation log entries](https://learn.microsoft.com/en-us/windows-hardware/drivers/install/setupapi-device-installation-log-entries) and [section-header format](https://learn.microsoft.com/en-us/windows-hardware/drivers/install/format-of-a-text-log-section-header).
 
 - NVIDIA public website catalog: `https://www.nvidia.com/Download/API/lookupValueSearch.aspx` (product/series/OS), and its `DriverManualLookup` metadata service at `gfwsl.geforce.com`. These are current website contracts, not a promised stable SDK. No third-party driver catalog is used.
+
+
+## Saved hardware reports
+
+Starting in v0.7.2, successful manual scans are remembered locally across launches. Drivers & devices restores its component cards and installed versions with a **Saved driver scan** timestamp. These are last-observed values, not a fresh installed-version check. Rescan after changing parts, Windows, firmware or drivers. Online release results are not persisted, and restoring a scan does not trigger an online lookup.
+
+The cache is separate from change history and is tied to the Windows installation. **PC scanner → Forget saved scan** removes remembered hardware reports while retaining driver change history. Background history monitoring does not silently refresh the displayed cards or this cache. Every benchmark still scans hardware independently.

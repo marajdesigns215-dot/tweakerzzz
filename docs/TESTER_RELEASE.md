@@ -1,6 +1,14 @@
-Download **Tweakerzzz-Setup-0.7.1-x64.exe** below. Quit the old app including its tray icon, then run the installer. No Node/npm or PowerShell launch commands are needed.
+Download **Tweakerzzz-Setup-0.7.2-x64.exe** below. Quit the old app including its tray icon, then run the installer. No Node/npm or PowerShell launch commands are needed.
 
-**New in v0.7.1: installed and available driver versions for the PC being scanned.**
+**New in v0.7.2: your PC is remembered between launches.**
+
+Run a PC, Drivers & devices, or peripheral scan once in this version. Successful native reports are saved locally and load on the next launch. Drivers & devices also retains its report when you switch tabs. The app shows **Using a saved scan** and the original scan date; rescan after changing parts or drivers. Latest-version checks stay manual and compare against the displayed installed-version scan.
+
+Use **PC scanner → Forget saved scan → Forget this PC** to remove remembered reports. Profiles, recordings, backups and change history stay. Imported reports are never saved as your own PC; copied data from another Windows installation is rejected. A basic PC rescan clears older detailed driver cards until Drivers & devices is rescanned.
+
+FPS recordings still read fresh hardware/settings, and Windows tweak detection remains live. Tests cover saved-data validation, failed writes, scan/forget races, reloads and a full installed Windows app quit/relaunch with the original scan timestamps.
+
+**Included from v0.7.1: installed and available driver versions for the PC being scanned.**
 
 Open **Drivers & devices → Scan drivers & devices → Check latest versions**.
 

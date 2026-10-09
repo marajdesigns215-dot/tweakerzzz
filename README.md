@@ -4,7 +4,7 @@ A Windows gaming and content-creation workspace built with React, TypeScript, Vi
 
 **Status: v0.7.1 beta build.** Browser workflows and Windows inventory, tweak detection, recommendations, OBS protocol, repeated-run analysis, and registry apply/restore are covered by automated checks. Tagged installers must also pass packaged-file, install, launch, shortcut, and uninstall checks before release. Monitor switching, vendor-specific devices, and actual performance results still need hardware testing. NVIDIA digital vibrance profiles use a native foreground observer with exact-level recovery. Physical NVIDIA color writes still need tester hardware validation; brightness/contrast/warmth and vendor-specific device tuning remain previews or guides.
 
-No reference PC is preloaded. Every hardware-dependent screen uses the latest native scan or an explicitly labeled imported report. NVIDIA, AMD, Intel, and unrecognized hardware get appropriate vendor guidance or an unknown result. Encoder hints are conservative model-family rules, not a probe of installed encoder support; check availability in your capture software. Missing memory speed and VRAM stay unknown. The Windows desktop build targets Windows x64; support for every device, driver, sensor, or control API is not implied.
+No reference PC is preloaded. Every hardware-dependent screen uses the latest native scan, a dated saved native scan, or an explicitly labeled imported report. NVIDIA, AMD, Intel, and unrecognized hardware get appropriate vendor guidance or an unknown result. Encoder hints are conservative model-family rules, not a probe of installed encoder support; check availability in your capture software. Missing memory speed and VRAM stay unknown. The Windows desktop build targets Windows x64; support for every device, driver, sensor, or control API is not implied.
 
 ## Implemented capabilities
 
@@ -145,7 +145,7 @@ Failed/interrupted recordings now offer **Retry recording**, preserving the orig
 
 ## Game recommendations and repeated experiments
 
-In **FPS recorder**, select a known game or its actual executable, choose Gaming/Streaming/Recording, and select **Scan for recommendations**. Only live detected specs are used as the current PC; imported reports do not stand in for a live scan. Each card explains why it applies and its tradeoff. **Review this tweak** opens the existing plan/backup flow; vendor and in-game settings remain guided. The app never automatically applies or rolls back recommendations. Generic programs receive general guidance rather than a guessed game profile.
+In **FPS recorder**, select a known game or its actual executable, choose Gaming/Streaming/Recording, and select **Scan for recommendations**. Saved native scans can supply general hardware guidance. Refresh the scan before adding measured signals from earlier recordings; imported reports do not stand in for a live scan. Each card explains why it applies and its tradeoff. **Review this tweak** opens the existing plan/backup flow; vendor and in-game settings remain guided. The app never automatically applies or rolls back recommendations. Generic programs receive general guidance rather than a guessed game profile.
 
 Turn on **Use controlled benchmark conditions** to name an experiment and record the game resolution, graphics/upscaling/frame-generation settings, FPS cap, and game build. Confirm you warmed up the scene and kept other settings/workloads consistent. **Use for After run** copies conditions but requires confirming them again. Record at least 60 seconds of usable gameplay per run, with three separate runs before and three after the same change. A baseline is never reused in more than one pair.
 
@@ -243,7 +243,7 @@ The new color helper is compiled on Windows with `npm run prepare:color` using t
 
 ## Hardware guidance consistency (v0.5.1)
 
-PC scanner, FPS recorder’s recommendation scan, and Drivers & devices now refresh one shared hardware report. Overview, the optimization catalog and detail dialogs, streaming settings and exports, display guides, and peripheral cards use that report. A failed rescan clears old hardware guidance, and a late response cannot replace a newer scan or import. Fresh sessions start unscanned. Imported reports are labeled and cannot establish live benchmark conditions.
+PC scanner, FPS recorder’s recommendation scan, and Drivers & devices now refresh one shared hardware report. Overview, the optimization catalog and detail dialogs, streaming settings and exports, display guides, and peripheral cards use that report. A failed rescan clears old hardware guidance, and a late response cannot replace a newer scan or import. After a successful native scan, later launches restore the saved report with a visible scan date. A new Windows installation starts unscanned. Imported reports are labeled, are never remembered as this PC, and cannot establish live benchmark conditions.
 
 Regression checks cover NVIDIA, AMD, Intel, integrated/ambiguous adapters, different RAM capacities/speeds, all scan entry points, failures, and overlapping requests. Run `python3 tests/ui_hardware_guidance.py` with the Vite server running for the renderer workflow checks. These tests use inventory fixtures; physical compatibility remains dependent on the installed Windows drivers and supported APIs.
 
@@ -274,3 +274,14 @@ Existing keys are opened with `RegistryRights.SetValue` for writes/deletes rathe
 When a plan is blocked, the review names the affected tweaks and offers **Remove blocked tweaks**. The user reviews and applies the remaining selection separately; there is no silent partial application. Registry ownership and ACLs are never changed by the app. Restore skips preferences that already equal their exact saved state, avoiding unnecessary writes to untouched protected values during rollback. A rollback failure still requires backup recovery and is never treated as a safely blocked plan.
 
 For protected Edge policies, the notice points to Edge Settings → System and performance. Leave settings alone if they are managed or unavailable. Windows CI runs `tests/windows.permissions.ps1` on private disposable keys, reproducing CreateSubKey denial with permitted value writes, denied value writes, protected parents, and a permission change after preflight with partial-write rollback. Production Edge/Windows key ACLs are not modified by these tests.
+
+
+## Remembering this PC (v0.7.2)
+
+Successful PC, Drivers & devices, and peripheral scans are saved automatically in the desktop app's local user-data folder (`hardware-memory/current.json`). On later launches the app loads them without running another hardware scan. Drivers & devices also keeps its report when navigating between tabs. A saved scan is dated and clearly labeled; it is not a live device, free-space, or installed-version check. Rescan after changing hardware or drivers. Latest available versions still require the manual online check.
+
+**PC scanner → Forget saved scan → Forget this PC** removes this cache and any preserved damaged copies. Profiles, recordings, backups and the separately managed driver change history remain. Imported reports never replace the stored native PC report. A successful basic PC scan clears the older detailed driver report; scan Drivers & devices to rebuild its installed-version inventory.
+
+The cache is bounded, validated, atomically replaced and tied to a hash of the Windows installation's MachineGuid. The raw GUID is not stored or sent online. A copied cache from another installation is rejected; this is an installation check, not proof of a physical machine's identity. Damaged/unsupported cache files produce a notice and are preserved when replaced by a fresh scan. Failed rescans do not overwrite the last saved report. If storage is unavailable, the live scan still works and the app explains that it could not be remembered.
+
+Windows tweak states continue to be read live. Every FPS recording independently captures fresh hardware and settings; saved startup scans are not substituted for benchmark evidence. Tests cover persistence, write failures, malformed/cross-installation data, scan/forget races, browser reloads and a complete installed Windows app quit/relaunch.
