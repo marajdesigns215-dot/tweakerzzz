@@ -20,7 +20,9 @@ async function fetchMetadata(url, { signal, fetcher = fetch } = {}) {
   const u=new URL(url);
   if (u.protocol!=='https:' || !HOSTS.has(u.hostname) || u.username || u.password || u.port) throw new Error('Unrecognized manufacturer metadata endpoint.');
   const timeout = AbortSignal.timeout(25000);
-  const response=await fetcher(u.href,{signal:signal ? AbortSignal.any([signal,timeout]) : timeout,redirect:'error',credentials:'omit',headers:{Accept:'application/json, text/xml, text/html'}});
+  let response;
+  try { response=await fetcher(u.href,{signal:signal ? AbortSignal.any([signal,timeout]) : timeout,redirect:'error',credentials:'omit',headers:{Accept:'application/json, text/xml, text/html','User-Agent':'Tweakerzzz release metadata check'}}); }
+  catch(error) { if(signal?.aborted) throw error; throw new Error(`${u.hostname}${u.pathname}: ${timeout.aborted ? 'metadata request timed out' : error.message}`,{cause:error}); }
   if(!response.ok) throw new Error(`Manufacturer source returned HTTP ${response.status}.`);
   const reader=response.body.getReader(), chunks=[]; let length=0;
   try { while(true) { const {done,value}=await reader.read(); if(done) break; length+=value.length; if(length>4*1024*1024) throw new Error('Manufacturer metadata exceeds the size limit.'); chunks.push(value); } }
@@ -84,7 +86,7 @@ function createVendorLookup({read=fetchMetadata}={}) {
       const os=systems.filter(r=>/Windows 11/i.test(osName) ? r.name==='Windows 11' : /Windows 10/i.test(osName) ? r.name==='Windows 10 64-bit' : false);
       if(os.length!==1) throw new Error('An exact Windows x64 driver target could not be identified.');
       const url=new URL('https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/services/AjaxDriverService.php');
-      url.search=new URLSearchParams({func:'DriverManualLookup',pfid:product.id,osID:os[0].id,dch:'1',numberOfResults:'100',languageCode:'1033'}).toString();
+      url.search=new URLSearchParams({func:'DriverManualLookup',pfid:product.id,osID:os[0].id,dch:'1',numberOfResults:'10',languageCode:'1033'}).toString();
       const result=parseNvidiaDrivers(JSON.parse(await cachedRead(url.href,{signal})),branch);
       return {...result,match:`Exact NVIDIA catalog model: ${product.name} · ${os[0].name}`,installed:nvidiaVersion(component.values['Installed driver'])};
     },

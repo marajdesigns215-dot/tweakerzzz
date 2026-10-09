@@ -2,7 +2,7 @@ name: Read-only vendor metadata validation
 on:
   push:
     branches: [main]
-    paths: ['tests/windows.vendor-metadata.cjs', '.github/workflows/vendor-metadata.yml']
+    paths: ['electron/vendor-releases.cjs', 'tests/windows.vendor-metadata.cjs', '.github/workflows/vendor-metadata.yml']
   workflow_dispatch:
 permissions:
   contents: read
