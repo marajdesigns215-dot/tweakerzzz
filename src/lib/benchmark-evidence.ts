@@ -1,4 +1,5 @@
 import type { CaptureRecord } from '../types.ts';
+import { captureQualityIssues } from './capture-quality.ts';
 import { tweaks } from '../data/tweaks.ts';
 const supported = tweaks.filter(t => t.mode === 'automatic').map(t => t.id).sort();
 const normalized = (value: string) => value.trim().toLowerCase();
@@ -12,6 +13,7 @@ function signature(record: CaptureRecord, end = false): string | null {
 }
 export function evidenceExclusion(record: CaptureRecord): string | null {
   if (record.status !== 'completed' || !record.summary) return 'Unsuccessful or unfinished recording';
+  if (captureQualityIssues(record).length) return 'Frame measurements need recalculation or capture-quality review';
   if (record.summary.sampledSeconds < 60 || record.summary.frames < 100 || record.summary.onePercentLow == null) return 'Less than 60 seconds of usable samples';
   if (![record.summary.averageFps, record.summary.onePercentLow, record.summary.p95FrameMs].every(v => Number.isFinite(v) && v > 0)) return 'Invalid performance measurements';
   if (!record.benchmark?.verified) return 'Benchmark conditions not confirmed';
@@ -26,7 +28,7 @@ export function evidenceExclusion(record: CaptureRecord): string | null {
 }
 export function experimentKey(record: CaptureRecord): string {
   const b = record.benchmark!;
-  return JSON.stringify([normalized(record.processName), record.context, normalized(record.scenario), record.seconds, !!record.telemetry, record.telemetrySummary?.obs.enabled ?? !!record.telemetrySummary?.obs.samples, record.hardwareKey, record.collector, ...['experiment', 'resolution', 'graphics', 'gameBuild'].map(key => normalized(b[key as 'experiment'])), b.fpsCap]);
+  return JSON.stringify([normalized(record.processName), record.context, normalized(record.scenario), record.seconds, !!record.telemetry, record.telemetrySummary?.obs.enabled ?? !!record.telemetrySummary?.obs.samples, record.hardwareKey, record.collector, record.captureMethod ?? 'legacy', record.summary?.metricsVersion, record.summary?.measurementBasis, ...['experiment', 'resolution', 'graphics', 'gameBuild'].map(key => normalized(b[key as 'experiment'])), b.fpsCap]);
 }
 export interface BenchmarkEvidence { scope: 'fps-only' | 'fps-and-obs'; key: string; experiment: string; processName: string; context: string; hardwareKey: string; changedIds: string[]; pairs: number; verdict: 'improved' | 'regressed' | 'inconclusive' | 'collect-more'; averageChange: number; lowChange: number; frameTimeChange: number; beforeIds: string[]; afterIds: string[]; reason: string }
 export function analyzeBenchmarks(records: CaptureRecord[]) {

@@ -1,12 +1,13 @@
-Tweakerzzz 0.6.2 makes selecting a running game easier and catches missing capture targets.
+Tweakerzzz 0.6.3 fixes inflated FPS from repeated frame-start rows and expands performance reports.
 
-- Find running programs now has text search, a scrollable list and large clickable rows.
-- Recognized games filters known games; All programs includes other games and applications. Search accepts game titles or executable names.
-- The Marvel Rivals preset now uses Marvel-Win64-Shipping.exe. Select the actual running game process if your build differs.
-- Recording checks the live Windows process list before starting. Missing targets produce a clear error without creating an empty recording.
-- Failed or interrupted recordings offer Retry recording and preserve the Before/After phase.
-- Zero-frame results include clearer collector troubleshooting. OBS remains optional.
+- Application FPS now counts intervals between distinct frame starts. Duplicate CSV rows no longer inflate FPS.
+- Older recordings show a warning and offer Recalculate saved CSV. Original CSVs and an original-report backup are preserved.
+- Reports add highest/lowest FPS over complete windows of at least one second, average FPS, 1%/0.1% lows, P95/P99 and worst frame time, variability, and long-frame counts.
+- Explore an interactive FPS timeline and review measured diagnostic signals with suggested tests.
+- New captures collect displayed FPS separately. It can differ from application cadence; unsupported display data stays unavailable.
+- Optional telemetry adds busiest-logical-CPU load, minimum available RAM and supported NVIDIA GPU-memory use. OBS remains optional.
+- Comparisons reject mixed calculation/collector versions; older or suspect measurements cannot drive repeated-run recommendations.
 
-Your profiles, backups and FPS recordings are preserved. This is an unsigned Windows x64 beta installer. Automated Windows checks cover real Direct3D frame capture, installed-app process selection and upgrading from 0.6.1. Live Marvel Rivals capture remains pending verification on a PC running the game; this release does not claim that game-specific test has passed.
+After installing, open FPS recorder and choose Recalculate saved CSV on an older report. Start matched new Before and After captures for future comparisons. A supplied Marvel Rivals CSV verified the duplicate-counting defect and corrected analysis; fresh in-game counter comparison is still needed on a gaming PC.
 
-On v0.6.0 or newer, use Updates → Check for updates → Download → Review installation → Install & restart. Older versions need a manual installer upgrade.
+This is an unsigned Windows x64 beta. Profiles, backups and recordings are retained. On v0.6.0 or newer, use Updates → Check for updates → Download → Review installation → Install & restart.

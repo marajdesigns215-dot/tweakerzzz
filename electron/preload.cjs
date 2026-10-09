@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('tweaker', Object.freeze({
   captureStatus: () => ipcRenderer.invoke('tweaker:capture-status'),
   listCaptures: () => ipcRenderer.invoke('tweaker:capture-list'),
   deleteCapture: id => ipcRenderer.invoke('tweaker:capture-delete', id),
+  reanalyzeCapture: id => ipcRenderer.invoke('tweaker:capture-reanalyze', id),
   exportCapture: id => ipcRenderer.invoke('tweaker:capture-export', id),
   minimizeToTray: () => ipcRenderer.invoke('tweaker:hide'),
   scan: () => ipcRenderer.invoke('tweaker:scan'),

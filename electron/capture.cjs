@@ -54,7 +54,7 @@ async function verifyCollector(executable) {
 }
 
 function createCaptureManager({ directory, executable, snapshot, readHardware = async () => null, readPrograms = listPrograms, obs, onChange = () => {}, launch = spawn, run = runFile, verify = () => verifyCollector(executable) }) {
-  let current = null, initializing = null, historyWarnings = [];
+  let current = null, initializing = null, historyWarnings = [], analyzing = null;
   const metadataPath = id => path.join(directory, validateSessionId(id) + '.json');
   const csvPath = id => path.join(directory, validateSessionId(id) + '.csv');
   async function save(record) {
@@ -101,6 +101,7 @@ function createCaptureManager({ directory, executable, snapshot, readHardware = 
   async function start(input) {
     const options = validateCapture(input);
     if (current) throw new Error('A recording is already running. Stop it first.');
+    if (analyzing) throw new Error('Wait for report recalculation to finish.');
     // Reserve before the first await, including integrity and snapshot checks.
     const reservation = { preparing: true, record: {}, metrics: { frames: 0 } };
     current = reservation;
@@ -121,11 +122,11 @@ function createCaptureManager({ directory, executable, snapshot, readHardware = 
       const hardware = hardwareResult ? { cpu: hardwareResult.cpu, gpu: hardwareResult.gpu, memory: hardwareResult.memory, os: hardwareResult.os, storage: hardwareResult.storage, scannedAt: hardwareResult.scannedAt, warnings: hardwareResult.warnings || [], peripherals: [] } : null;
       const hardwareKey = hardware ? crypto.createHash('sha256').update(JSON.stringify([hardware.cpu, hardware.gpu, hardware.memory, hardware.os])).digest('hex') : null;
       const id = crypto.randomBytes(16).toString('hex');
-      const record = { version: 1, id, ...options, targetCheckedAt, startedAt: new Date().toISOString(), status: 'recording', collector: 'PresentMon ' + spec.version, settings, hardware, hardwareKey, summary: null, error: '' };
+      const record = { version: 1, id, ...options, targetCheckedAt, captureMethod: 'presentmon-display-v2', startedAt: new Date().toISOString(), status: 'recording', collector: 'PresentMon ' + spec.version, settings, hardware, hardwareKey, summary: null, error: '' };
       await save(record);
       const metrics = new FrameMetrics(options.processName);
       const output = fs.createWriteStream(csvPath(id), { flags: 'wx' });
-      const child = launch(executable, ['--process_name', options.processName, '--output_stdout', '--no_console_stats', '--no_track_gpu', '--no_track_input', '--no_track_display', '--session_name', 'Tweakerzzz-' + id, '--timed', String(options.seconds), '--terminate_after_timed'], { windowsHide: true, shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
+      const child = launch(executable, ['--process_name', options.processName, '--output_stdout', '--no_console_stats', '--no_track_gpu', '--no_track_input', '--track_frame_type', '--session_name', 'Tweakerzzz-' + id, '--timed', String(options.seconds), '--terminate_after_timed'], { windowsHide: true, shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
       let resolveDone;
       const done = new Promise(resolve => { resolveDone = resolve; });
       const active = { record, metrics, child, output, done, stopping: false, error: '', stderr: '', bytes: 0 };
@@ -159,7 +160,7 @@ function createCaptureManager({ directory, executable, snapshot, readHardware = 
           if (active.bytes > 64 * 1024 * 1024) { active.reason = '64 MB recording limit reached'; void stop(); return; }
           metrics.push(chunk);
           if (!output.write(chunk)) { child.stdout.pause(); output.once('drain', () => child.stdout.resume()); }
-          if (metrics.limited) { active.reason = 'Two million frame limit reached'; void stop(); }
+          if (metrics.limited) { active.reason = 'Two million CSV row limit reached'; void stop(); }
         } catch (error) { active.error = error.message; void stop(); }
       });
       child.stderr.on('data', chunk => { active.stderr = (active.stderr + chunk).slice(0, 12000); });
@@ -182,10 +183,31 @@ function createCaptureManager({ directory, executable, snapshot, readHardware = 
     }
     return active.done;
   }
-  return { start, stop, status, isActive: () => !!current,
+  async function reanalyze(id) {
+    validateSessionId(id);
+    if (current || analyzing) throw new Error('Finish the active recording or report recalculation first.');
+    analyzing = id;
+    try {
+      const record = (await records()).find(item => item.id === id);
+      if (!record || record.status === 'recording') throw new Error('Saved recording not found.');
+      const source = csvPath(id);
+      if ((await fsp.stat(source)).size > 64 * 1024 * 1024) throw new Error('The saved CSV exceeds the 64 MB recording limit.');
+      const metrics = new FrameMetrics(record.processName);
+      for await (const chunk of fs.createReadStream(source, { encoding: 'utf8' })) metrics.push(chunk);
+      metrics.end();
+      const summary = metrics.summary();
+      if (!summary) throw new Error('The saved CSV has no usable frame intervals. Your existing report was preserved.');
+      // Preserve the exact original metadata once; CSV bytes are never changed.
+      try { await fsp.copyFile(metadataPath(id), path.join(directory, id + '.before-analysis.json'), fs.constants.COPYFILE_EXCL); }
+      catch (error) { if (error.code !== 'EEXIST') throw error; }
+      record.summary = summary; record.reanalyzedAt = new Date().toISOString();
+      await save(record); return record;
+    } finally { analyzing = null; }
+  }
+  return { start, stop, status, reanalyze, isActive: () => !!current,
     list: async () => { await initialize(); return (await records()).filter(record => record.id !== current?.record.id); },
     csvPath: async id => { validateSessionId(id); if (id === current?.record.id) throw new Error('Stop recording before exporting.'); const record = (await records()).find(item => item.id === id); if (!record) throw new Error('Recording not found.'); return csvPath(id); },
-    remove: async id => { validateSessionId(id); if (id === current?.record.id) throw new Error('Stop recording before deleting it.'); await fsp.rm(csvPath(id), { force: true }); await fsp.unlink(metadataPath(id)); },
+    remove: async id => { validateSessionId(id); if (id === current?.record.id || id === analyzing) throw new Error('Stop recording or finish recalculation before deleting it.'); await fsp.rm(csvPath(id), { force: true }); await fsp.unlink(metadataPath(id)); await fsp.rm(path.join(directory, id + '.before-analysis.json'), { force: true }); },
   };
 }
 module.exports = { createCaptureManager, validateCapture, validateSessionId, listPrograms, verifyCollector };

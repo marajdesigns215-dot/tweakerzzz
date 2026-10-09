@@ -29,9 +29,23 @@ export interface Backup { id: string; createdAt: string; count: number; action?:
 export interface BenchmarkConditions { experiment: string; resolution: string; graphics: string; gameBuild: string; fpsCap: number; verified: boolean }
 export interface CaptureOptions { processName: string; phase: 'before' | 'after'; context: 'Gaming' | 'Streaming' | 'Recording'; seconds: number; scenario: string; telemetry?: boolean; benchmark?: BenchmarkConditions }
 export interface UsageStats { samples: number; averagePercent: number | null; peakPercent: number | null }
-export interface TelemetrySummary { enabled: boolean; intervalSeconds: number; cpu: UsageStats; memory: UsageStats; gpu: UsageStats & { name: string; peakTemperatureC: number | null }; cpuTemperatureC: number | null; cpuTemperatureSensor?: string | null; obs: { enabled?: boolean; samples: number; renderingLagPercent: number | null; encodingLagPercent: number | null; networkDropPercent: number | null; streaming: boolean; recording: boolean }; warnings: string[] }
-export interface FrameSummary { frames: number; sampledSeconds: number; averageFps: number; onePercentLow: number | null; p95FrameMs: number; processId: number; swapChain: string; otherStreamFrames: number; invalidFrames: number; streamCount: number }
-export interface CaptureRecord extends CaptureOptions { version: number; id: string; startedAt: string; endedAt?: string; targetCheckedAt?: string; status: 'recording' | 'completed' | 'failed' | 'interrupted'; collector: string; settings: TweakStatusReport; settingsEnd?: TweakStatusReport | null; hardware?: SystemScan | null; hardwareKey?: string | null; telemetrySummary?: TelemetrySummary | null; summary: FrameSummary | null; error: string; collectorWarnings?: string; stopReason?: string }
+export interface TelemetrySummary { enabled: boolean; intervalSeconds: number; cpu: UsageStats; memory: UsageStats; gpu: UsageStats & { name: string; peakTemperatureC: number | null }; cpuTemperatureC: number | null; cpuTemperatureSensor?: string | null; busiestCore?: UsageStats; minimumAvailableMemoryMB?: number | null; gpuMemory?: { samples: number; peakUsedMB: number | null; totalMB: number | null; peakPercent: number | null }; obs: { enabled?: boolean; samples: number; renderingLagPercent: number | null; encodingLagPercent: number | null; networkDropPercent: number | null; streaming: boolean; recording: boolean }; warnings: string[] }
+export interface FrameWindow { startSecond: number; endSecond: number; frames: number; averageFps: number }
+export interface FrameDistribution {
+  frames: number; sampledSeconds: number; averageFps: number; onePercentLow: number | null; p95FrameMs: number;
+  highestFps?: number | null; lowestFps?: number | null; pointOnePercentLow?: number | null;
+  medianFps?: number; meanFrameMs?: number; p99FrameMs?: number; worstFrameMs?: number; frameTimeStdDevMs?: number;
+  slowFrames50ms?: number; slowFrames100ms?: number; spikeThresholdMs?: number; spikeFrames?: number; timeline?: FrameWindow[];
+}
+export interface FrameSummary extends FrameDistribution {
+  processId: number; swapChain: string; otherStreamFrames: number; invalidFrames: number; streamCount: number;
+  metricsVersion?: 2; measurementBasis?: 'cpu-start-interval' | 'legacy-frame-time'; qualityIssues?: string[];
+  duplicateRows?: number; zeroFrameRows?: number; generatedFrameRows?: number;
+  displayTracking?: boolean; displayed?: FrameDistribution | null; notDisplayedFrames?: number | null; displayUnknownRows?: number;
+  runtimes?: string[]; presentModes?: string[];
+  streams?: { processId: number; swapChain: string; frames: number; duplicateRows: number; sampledSeconds: number }[];
+}
+export interface CaptureRecord extends CaptureOptions { version: number; id: string; startedAt: string; endedAt?: string; targetCheckedAt?: string; reanalyzedAt?: string; captureMethod?: 'presentmon-display-v2'; status: 'recording' | 'completed' | 'failed' | 'interrupted'; collector: string; settings: TweakStatusReport; settingsEnd?: TweakStatusReport | null; hardware?: SystemScan | null; hardwareKey?: string | null; telemetrySummary?: TelemetrySummary | null; summary: FrameSummary | null; error: string; collectorWarnings?: string; stopReason?: string }
 export type CaptureStatus = ({ active: false } | (Partial<CaptureRecord> & { active: true; frames: number; stopping: boolean })) & { historyWarnings?: string[] };
 export interface DisplayMode { width: number; height: number; refreshRate: number }
 export interface ProgramColorConfig { displayId: string; desktop: number; sdrConfirmed: boolean; profiles: { processName: string; vibrance: number }[] }
@@ -81,6 +95,7 @@ declare global {
       captureStatus(): Promise<CaptureStatus>;
       listCaptures(): Promise<CaptureRecord[]>;
       deleteCapture(id: string): Promise<void>;
+      reanalyzeCapture(id: string): Promise<CaptureRecord>;
       exportCapture(id: string): Promise<void>;
       minimizeToTray(): Promise<void>;
       openSettings(target: string): Promise<void>;

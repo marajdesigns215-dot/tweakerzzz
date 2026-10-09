@@ -260,6 +260,7 @@ function registerHandlers() {
   handle('tweaker:capture-status', () => capture.status());
   handle('tweaker:capture-list', () => capture.list());
   handle('tweaker:capture-delete', id => capture.remove(id));
+  handle('tweaker:capture-reanalyze', id => exclusive(() => { ensureNotRecording(); return capture.reanalyze(id); }));
   handle('tweaker:capture-export', async id => {
     const source = await capture.csvPath(id);
     const result = await dialog.showSaveDialog(window, { title: 'Export PresentMon frame data', defaultPath: `Tweakerzzz-${id}.csv`, filters: [{ name: 'CSV frame data', extensions: ['csv'] }] });

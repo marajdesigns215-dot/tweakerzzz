@@ -16,13 +16,31 @@ function validateRecord(record, file, validateOptions) {
   if (!['recording', 'completed', 'failed', 'interrupted'].includes(record.status) || !date(record.startedAt) || !text(record.collector, 100) || !text(record.error, 16000) || !settings(record.settings)) fail();
   if (record.endedAt != null && !date(record.endedAt)) fail();
   if (record.targetCheckedAt !== undefined && !date(record.targetCheckedAt)) fail();
+  if (record.reanalyzedAt !== undefined && !date(record.reanalyzedAt)) fail();
+  if (record.captureMethod !== undefined && record.captureMethod !== 'presentmon-display-v2') fail();
   if (record.settingsEnd != null && !settings(record.settingsEnd)) fail();
   if (record.hardwareKey != null && !/^[a-f0-9]{64}$/.test(record.hardwareKey)) fail();
   for (const key of ['stopReason', 'collectorWarnings']) if (record[key] != null && !text(record[key], 16000)) fail();
   if (record.status === 'completed' && !record.summary) fail();
+  const distribution = s => {
+    if (!object(s) || !['frames', 'sampledSeconds', 'averageFps', 'p95FrameMs'].every(k => number(s[k])) || !nullable(s.onePercentLow)) return false;
+    if (['highestFps', 'lowestFps', 'pointOnePercentLow'].some(k => s[k] !== undefined && !nullable(s[k]))) return false;
+    if (['medianFps', 'meanFrameMs', 'p99FrameMs', 'worstFrameMs', 'frameTimeStdDevMs', 'slowFrames50ms', 'slowFrames100ms', 'spikeThresholdMs', 'spikeFrames'].some(k => s[k] !== undefined && !number(s[k]))) return false;
+    if (s.timeline !== undefined && (!Array.isArray(s.timeline) || s.timeline.length > 120 || !s.timeline.every(p => object(p) && ['startSecond', 'endSecond', 'frames', 'averageFps'].every(k => number(p[k])) && p.endSecond > p.startSecond))) return false;
+    return true;
+  };
   if (record.summary != null) {
     const s = record.summary;
-    if (!object(s) || !['frames', 'sampledSeconds', 'averageFps', 'p95FrameMs', 'processId', 'otherStreamFrames', 'invalidFrames', 'streamCount'].every(k => number(s[k])) || !nullable(s.onePercentLow) || !text(s.swapChain, 200)) fail();
+    if (!distribution(s) || !['frames', 'sampledSeconds', 'averageFps', 'p95FrameMs', 'processId', 'otherStreamFrames', 'invalidFrames', 'streamCount'].every(k => number(s[k])) || !nullable(s.onePercentLow) || !text(s.swapChain, 200)) fail();
+    if (s.metricsVersion !== undefined && s.metricsVersion !== 2) fail();
+    if (s.measurementBasis !== undefined && !['cpu-start-interval', 'legacy-frame-time'].includes(s.measurementBasis)) fail();
+    for (const key of ['qualityIssues', 'runtimes', 'presentModes']) if (s[key] !== undefined && (!Array.isArray(s[key]) || s[key].length > 32 || !s[key].every(v => text(v)))) fail();
+    for (const key of ['duplicateRows', 'zeroFrameRows', 'generatedFrameRows', 'displayUnknownRows']) if (s[key] !== undefined && !number(s[key])) fail();
+    if (s.notDisplayedFrames !== undefined && !nullable(s.notDisplayedFrames)) fail();
+    if (s.displayTracking !== undefined && typeof s.displayTracking !== 'boolean') fail();
+    if (s.displayed != null && !distribution(s.displayed)) fail();
+    if (s.streams !== undefined && (!Array.isArray(s.streams) || s.streams.length > 32 || !s.streams.every(v => object(v) && text(v.swapChain, 200) && ['processId', 'frames', 'duplicateRows', 'sampledSeconds'].every(k => number(v[k]))))) fail();
+    if (s.metricsVersion === 2 && (!s.measurementBasis || !Array.isArray(s.qualityIssues) || !Array.isArray(s.timeline))) fail();
   }
   if (record.hardware != null) {
     const h = record.hardware;
@@ -34,6 +52,9 @@ function validateRecord(record, file, validateOptions) {
     const t = record.telemetrySummary;
     if (!object(t) || typeof t.enabled !== 'boolean' || !number(t.intervalSeconds) || !stats(t.cpu) || !stats(t.memory) || !stats(t.gpu) || !text(t.gpu.name, 250) || !nullable(t.gpu.peakTemperatureC, 200) || !nullable(t.cpuTemperatureC, 200)) fail();
     if (t.cpuTemperatureSensor != null && !text(t.cpuTemperatureSensor, 250)) fail();
+    if (t.busiestCore !== undefined && !stats(t.busiestCore)) fail();
+    if (t.minimumAvailableMemoryMB !== undefined && !nullable(t.minimumAvailableMemoryMB)) fail();
+    if (t.gpuMemory !== undefined && (!object(t.gpuMemory) || !number(t.gpuMemory.samples) || !nullable(t.gpuMemory.peakUsedMB) || !nullable(t.gpuMemory.totalMB) || !nullable(t.gpuMemory.peakPercent, 100))) fail();
     const o = t.obs;
     if (!object(o) || !number(o.samples) || !['renderingLagPercent', 'encodingLagPercent', 'networkDropPercent'].every(k => nullable(o[k], 100)) || typeof o.streaming !== 'boolean' || typeof o.recording !== 'boolean' || (o.enabled !== undefined && typeof o.enabled !== 'boolean')) fail();
     if (!Array.isArray(t.warnings) || t.warnings.length > 100 || !t.warnings.every(w => text(w))) fail();

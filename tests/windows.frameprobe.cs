@@ -2,6 +2,7 @@
 // requiring a gaming GPU or treating a synthetic test as a game benchmark.
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -32,6 +33,7 @@ class FrameProbe : Form {
                 if (clock.Elapsed.TotalSeconds > 55) { Close(); return; }
                 Method<ClearView>(context, 50)(context, view, new float[] { (float)(clock.Elapsed.TotalSeconds % 1), .2f, .3f, 1 });
                 Marshal.ThrowExceptionForHR(Method<Present>(swap, 8)(swap, 0, 0));
+                Console.WriteLine("PRESENT," + clock.Elapsed.TotalMilliseconds.ToString("F4", CultureInfo.InvariantCulture)); Console.Out.Flush();
             } catch (Exception e) { Console.Error.WriteLine(e); Environment.ExitCode = 1; Close(); }
         };
         clock.Start(); timer.Start(); Console.WriteLine("READY"); Console.Out.Flush();

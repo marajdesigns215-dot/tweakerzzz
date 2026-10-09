@@ -1,14 +1,14 @@
-Download **Tweakerzzz-Setup-0.6.2-x64.exe** below. Quit the old app (including its tray icon), then run the installer. No Node/npm or PowerShell launch commands are needed. Download the **.exe asset**, not GitHub's Source code ZIP.
+Download **Tweakerzzz-Setup-0.6.3-x64.exe** below. Quit the old app including its tray icon, then run the installer. No Node/npm or PowerShell launch commands are needed.
 
-**Fixed in v0.6.2 — running-game selection and recording:**
+**Fixed: inflated FPS from repeated frame-start rows.** A real capture exposed short CPUWait-only rows sharing the same frame-start timestamps as other rows. Counting both inflated FPS. Application FPS now uses consecutive distinct timestamps for one process/swap chain.
 
-- **Find running programs** now opens a searchable, scrollable list with large clickable rows. Filter recognized games, or choose **All programs** for other games/applications.
-- Search by executable name or recognized game title. The Marvel Rivals preset now uses `Marvel-Win64-Shipping.exe`; select the actual running process if your build differs.
-- Before recording, the app checks that the selected process is running. Missing targets are rejected without saving an empty recording.
-- **Retry recording** preserves the Before/After phase of a failed or interrupted run. Zero-frame results now include clearer tracing troubleshooting.
-- OBS remains optional; existing recordings and settings remain readable.
+**Correct existing reports:** In FPS recorder, choose **Recalculate saved CSV** on an older recording. Original CSVs are preserved, and the original report is backed up before replacement. Missing display or hardware measurements cannot be reconstructed.
 
-**Windows verification:** The release workflow tests real Direct3D frame capture, live Windows process search/selection inside the installed app, and upgrading from 0.6.1 while retaining saved data. **Live Marvel Rivals capture is still pending a tester run on a Windows PC with the game.** Passing the Direct3D test does not establish compatibility with that game. Use the [30-second Marvel Rivals capture check](https://github.com/marajdesigns215-dot/tweakerzzz/blob/v0.6.2/docs/MARVEL_RIVALS_TEST.md), then export the CSV and summary if capture fails.
+**Expanded reports:** Highest/lowest FPS over complete windows of at least one second, average FPS, 1%/0.1% lows, P95/P99 and worst frame time, variability, long-frame counts and an interactive timeline. Displayed FPS is collected and shown separately on new recordings where supported. Diagnostics suggest reviewable tests without claiming a proven bottleneck or applying tweaks automatically. Optional telemetry adds busiest-logical-CPU load, available RAM and supported NVIDIA GPU-memory allocation. OBS is optional.
+
+**Comparisons:** Capture matching new Before and After runs. Calculation versions and collector modes must match. Older or suspect measurements are excluded from repeated-run recommendations until valid recalculation.
+
+**Validation:** Automated checks cover duplicate counting, distributions, application/display separation, backup-preserving reanalysis, exports, UI and native Windows collection. The Windows renderer independently counts and times Present calls as a check against FPS inflation. A supplied Marvel Rivals CSV confirmed the defect and corrected offline analysis; a fresh matched game/counter test on a gaming PC is still needed. See the [measurement definitions](https://github.com/marajdesigns215-dot/tweakerzzz/blob/v0.6.3/docs/FPS_MEASUREMENT.md) and [Marvel Rivals test](https://github.com/marajdesigns215-dot/tweakerzzz/blob/v0.6.3/docs/MARVEL_RIVALS_TEST.md).
 
 **Already on v0.6.0 or newer?** Use **Updates → Check for updates → Download → Review installation → Install & restart**. Checks, downloads and installation are manual. Finish any active recording, Windows change, resolution test or color observer first. Saved profiles, backups and recordings are retained. Users on 0.5.2 or older need this installer once to enable future in-app updates.
 

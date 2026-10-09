@@ -4,7 +4,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { execFile } = require('node:child_process');
 function cpuTimes(host) {
-  return host.cpus().reduce((result, cpu) => { result.idle += cpu.times.idle; result.total += Object.values(cpu.times).reduce((sum, value) => sum + value, 0); return result; }, { idle: 0, total: 0 });
+  return host.cpus().reduce((result, cpu) => { const total = Object.values(cpu.times).reduce((sum, value) => sum + value, 0); result.idle += cpu.times.idle; result.total += total; result.cores.push({ idle: cpu.times.idle, total }); return result; }, { idle: 0, total: 0, cores: [] });
 }
 function parseGpu(raw, name) {
   const rows = raw.trim().split(/\r?\n/).map(line => line.split(',').map(part => part.trim()));
@@ -42,8 +42,13 @@ function createTelemetry({ hardware, obs, host = os, environment = process.env, 
     inFlight = (async () => {
       const next = cpuTimes(host), elapsed = next.total - previous.total;
       const cpu = elapsed > 0 ? Math.max(0, Math.min(100, (1 - (next.idle - previous.idle) / elapsed) * 100)) : null;
+      const coreLoads = next.cores.map((core, i) => {
+        const old = previous.cores[i], duration = old ? core.total - old.total : 0;
+        return duration > 0 && core.idle >= old.idle ? Math.max(0, Math.min(100, (1 - (core.idle - old.idle) / duration) * 100)) : null;
+      }).filter(value => value != null);
       previous = next;
-      const total = host.totalmem(); samples.push({ cpu, memory: total > 0 ? (1 - host.freemem() / total) * 100 : null });
+      const total = host.totalmem(), free = host.freemem();
+      samples.push({ cpu, busiestCore: coreLoads.length ? Math.max(...coreLoads) : null, availableMB: total > 0 && free >= 0 && free <= total ? free / 1048576 : null, memory: total > 0 ? (1 - free / total) * 100 : null });
       const results = await Promise.allSettled([
         smi ? execute(smi, ['--query-gpu=name,utilization.gpu,temperature.gpu,memory.used,memory.total', '--format=csv,noheader,nounits']).then(raw => parseGpu(raw, gpuName)) : Promise.resolve(null),
         obsEnabled ? (obs?.status().connected ? obs.sample() : Promise.reject(new Error('OBS disconnected during this run.'))) : Promise.resolve(null),
@@ -70,7 +75,12 @@ function createTelemetry({ hardware, obs, host = os, environment = process.env, 
     if (obsInvalid) warnings.add('OBS counters reset, its output mode changed/paused, its stream reconnected, or its connection was interrupted. Lag percentages are unavailable for this run.');
     const temperatures = gpuSamples.map(value => value.temperature).filter(value => value != null);
     const gpu = { ...stats(gpuSamples.map(value => value.utilization)), name: gpuName ?? 'Unknown GPU', peakTemperatureC: temperatures.length ? Math.max(...temperatures) : null };
-    return { enabled: true, intervalSeconds: 5, cpu: stats(samples.map(value => value.cpu)), memory: stats(samples.map(value => value.memory)), gpu, cpuTemperatureC: temperaturesCpu.length ? Math.max(...temperaturesCpu) : null, cpuTemperatureSensor: cpuSensor, obs: { ...obsDelta(firstObs, lastObs, obsInvalid), enabled: obsEnabled, samples: obsSamples }, warnings: [...warnings] };
+    const memorySamples = gpuSamples.filter(s => s.memoryUsedMB != null && s.memoryTotalMB > 0 && s.memoryUsedMB <= s.memoryTotalMB);
+    const available = samples.map(s => s.availableMB).filter(v => v != null);
+    const gpuMemory = { samples: memorySamples.length, peakUsedMB: memorySamples.length ? Math.max(...memorySamples.map(s => s.memoryUsedMB)) : null,
+      totalMB: memorySamples.length && memorySamples.every(s => s.memoryTotalMB === memorySamples[0].memoryTotalMB) ? memorySamples[0].memoryTotalMB : null,
+      peakPercent: memorySamples.length ? Math.max(...memorySamples.map(s => s.memoryUsedMB / s.memoryTotalMB * 100)) : null };
+    return { enabled: true, intervalSeconds: 5, busiestCore: stats(samples.map(s => s.busiestCore)), minimumAvailableMemoryMB: available.length ? Math.min(...available) : null, gpuMemory, cpu: stats(samples.map(value => value.cpu)), memory: stats(samples.map(value => value.memory)), gpu, cpuTemperatureC: temperaturesCpu.length ? Math.max(...temperaturesCpu) : null, cpuTemperatureSensor: cpuSensor, obs: { ...obsDelta(firstObs, lastObs, obsInvalid), enabled: obsEnabled, samples: obsSamples }, warnings: [...warnings] };
   } };
 }
 module.exports = { cpuTimes, parseGpu, parseCpuTemperature, obsDelta, createTelemetry };

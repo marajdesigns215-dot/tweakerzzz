@@ -20,7 +20,7 @@ test('frame metrics use elapsed frame time, preserve slow frames and separate re
   assert.equal(result.frames, 100); assert.equal(result.averageFps, 100000 / 1090);
   assert.equal(result.onePercentLow, 10); assert.equal(result.p95FrameMs, 10);
   assert.equal(result.sampledSeconds, 1.09); assert.equal(result.otherStreamFrames, 20);
-  assert.equal(result.invalidFrames, 3); assert.equal(result.processId, 10);
+  assert.equal(result.invalidFrames, 2); assert.equal(result.zeroFrameRows, 1); assert.equal(result.processId, 10);
   assert.deepEqual(csvFields('"game,name.exe",10,"a""b",12'), ['game,name.exe', '10', 'a"b', '12']);
 });
 test('empty, short, incompatible and bounded frame streams do not fabricate results', () => {
@@ -128,6 +128,9 @@ test('recording lifetime saves raw CSV and snapshot, stops only its own session 
     assert.equal(h.manager.status().active, false);
     assert.equal(h.calls[0].options.shell, false);
     assert.ok(h.calls[0].args.includes('--no_track_input'));
+    assert.ok(h.calls[0].args.includes('--track_frame_type'));
+    assert.ok(!h.calls[0].args.includes('--no_track_display'));
+    assert.equal(result.captureMethod, 'presentmon-display-v2');
     assert.deepEqual(h.stopped[0].args, ['--session_name', 'Tweakerzzz-' + state.id, '--terminate_existing_session']);
     const history = await h.manager.list(); assert.equal(history.length, 1); assert.deepEqual(history[0].settings.tweaks, []);
     assert.ok((await fs.readFile(await h.manager.csvPath(state.id), 'utf8')).endsWith(row(20)));
@@ -218,4 +221,28 @@ test('ordinary comparisons reject asymmetric snapshots and flag legacy hardware 
   assert.equal(compareCaptures({ ...b, benchmark }, a), null);
   assert.equal(compareCaptures(b, { ...a, benchmark }), null);
   assert.equal(compareCaptures({ ...b, hardwareKey: 'same', benchmark }, { ...a, hardwareKey: 'same', benchmark }).hardwareUnverified, false);
+});
+
+test('saved CSV recalculation preserves original bytes and metadata, survives reload and rejects malformed data', async () => {
+  const h = await harness();
+  try {
+    await h.manager.start(options); h.children[0].stdout.write(header + row(10).repeat(100));
+    const original = await h.manager.stop();
+    const source = await h.manager.csvPath(original.id), metadata = path.join(h.directory, original.id + '.json');
+    const oldBytes = await fs.readFile(metadata, 'utf8');
+    const raw = 'Application,ProcessID,SwapChainAddress,CPUStartTime,FrameTime\n' + Array.from({length:201}, (_, i) => `game.exe,10,0x1,${i*5},.3\ngame.exe,10,0x1,${i*5},5\n`).join('');
+    await fs.writeFile(source, raw);
+    const revised = await h.manager.reanalyze(original.id);
+    assert.equal(revised.summary.averageFps, 200); assert.equal(revised.summary.duplicateRows, 201);
+    assert.ok(revised.reanalyzedAt); assert.equal((await h.manager.list())[0].summary.averageFps, 200);
+    assert.equal(await fs.readFile(source, 'utf8'), raw);
+    assert.equal(await fs.readFile(path.join(h.directory, original.id + '.before-analysis.json'), 'utf8'), oldBytes);
+    await h.manager.reanalyze(original.id);
+    assert.equal(await fs.readFile(path.join(h.directory, original.id + '.before-analysis.json'), 'utf8'), oldBytes);
+    const saved = await fs.readFile(metadata, 'utf8'); await fs.writeFile(source, 'Application,Unexpected\n');
+    await assert.rejects(h.manager.reanalyze(original.id), /Unsupported/);
+    assert.equal(await fs.readFile(metadata, 'utf8'), saved);
+    await assert.rejects(h.manager.reanalyze('../../bad'), /Invalid recording/);
+    await h.manager.remove(original.id); assert.deepEqual(await fs.readdir(h.directory), []);
+  } finally { await h.cleanup(); }
 });

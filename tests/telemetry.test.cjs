@@ -60,3 +60,13 @@ test('paused OBS output invalidates lag percentages even if counters keep increa
   assert.equal(result.obs.encodingLagPercent, null);
   assert.ok(result.warnings.some(w => w.includes('paused')));
 });
+
+test('per-logical-CPU and memory measurements use actual samples and leave missing providers unknown', async () => {
+  let ticks = 0;
+  const host = { cpus: () => { ticks++; return [{ times: { idle: 0, user: ticks * 100 } }, { times: { idle: ticks * 100, user: 0 } }]; }, totalmem: () => 32000 * 1048576, freemem: () => 8000 * 1048576 };
+  const t = createTelemetry({ host, hardware: { gpu: { name: 'NVIDIA GPU' } }, exists: () => true, execute: async (_file, args) => args[0].startsWith('--query-gpu') ? 'NVIDIA GPU,98,72,7500,8000' : '[]' });
+  const result = await t.stop();
+  assert.equal(result.cpu.averagePercent, 50); assert.equal(result.busiestCore.averagePercent, 100);
+  assert.equal(result.minimumAvailableMemoryMB, 8000); assert.equal(result.gpuMemory.peakUsedMB, 7500);
+  assert.equal(result.gpuMemory.totalMB, 8000); assert.equal(result.gpuMemory.peakPercent, 93.75);
+});
