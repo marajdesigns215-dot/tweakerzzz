@@ -45,13 +45,13 @@ function parseNvidiaDrivers(raw, branch) {
   if (!raw || !Array.isArray(raw.IDS) || !Number.isFinite(Number(raw.Success)) || Number(raw.Success)<1) throw new Error('No driver metadata was returned for this model and Windows version.');
   const rows=raw.IDS.flatMap(row=>{
     const d=row?.downloadInfo;
-    if(!d || String(d.IsBeta)!=='0' || String(d.IsWHQL)!=='1' || String(d.IsFeaturePreview)!=='0' || String(d.IsActive)!=='1' || String(d.IsCRD)!==(branch==='studio'?'1':'0') || !/^\d{3,4}\.\d{2}$/.test(d.Version || '')) return [];
+    if(!d || String(d.IsBeta)!=='0' || branch!=='studio' && String(d.IsWHQL)!=='1' || String(d.IsFeaturePreview)!=='0' || String(d.IsActive)!=='1' || String(d.IsCRD)!==(branch==='studio'?'1':'0') || !/^\d{3,4}\.\d{2}$/.test(d.Version || '')) return [];
     const url=officialReleaseUrl(d.DetailsURL); if(!url) return [];
     let description=d.ReleaseNotes || ''; try { description=decodeURIComponent(description); } catch { /* Plain source text remains data. */ }
-    return [{version:d.Version,date:String(d.ReleaseDateTime || '').slice(0,100),url,notes:plain(description).slice(0,12000),source:`NVIDIA ${branch==='studio'?'Studio':'Game Ready'} · WHQL`,kind:'manufacturer'}];
+    return [{version:d.Version,date:String(d.ReleaseDateTime || '').slice(0,100),url,notes:plain(description).slice(0,12000),source:`NVIDIA ${branch==='studio'?'Studio · non-beta':'Game Ready'} · ${String(d.IsWHQL)==='1'?'WHQL':'WHQL not reported'}`,kind:'manufacturer'}];
   });
   rows.sort((a,b)=>compareVersions(b.version,a.version) || 0);
-  if(!rows.length) throw new Error('No stable WHQL release was returned for this model and selected branch.');
+  if(!rows.length) throw new Error('No supported non-beta release was returned for this model and selected branch.');
   return rows[0];
 }
 function createVendorLookup({read=fetchMetadata}={}) {
