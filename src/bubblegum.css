@@ -72,3 +72,8 @@ body{background:radial-gradient(ellipse at 85% 0,#ff4fa311,transparent 45%),var(
 button.build-tag { cursor: pointer; color: #dfb9d1; font-family: inherit; background: transparent; border: 0; padding: 6px; }
 .sidebar { overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
 .sidebar > * { flex-shrink: 0; }
+
+.blocked-tweaks ul { padding-left: 22px; margin: 18px 0; }
+.blocked-tweaks li { margin-bottom: 16px; }
+.blocked-tweaks details { margin-top: 8px; }
+.blocked-tweaks pre { white-space: pre-wrap; overflow-wrap: anywhere; }

@@ -23,6 +23,8 @@ export interface PeripheralScan { peripherals: SystemScan['peripherals']; scanne
 export type TweakState = 'enabled' | 'not-enabled' | 'not-configured' | 'unknown';
 export interface TweakStatus { id: string; status: TweakState; message: string; fingerprint?: string }
 export interface TweakStatusReport { checkedAt: string; tweaks: TweakStatus[] }
+export interface BlockedPreference { id: string; message: string }
+export interface PreferenceResult { message: string; backupId: string | null; applied?: string[]; skipped?: string[]; blocked?: BlockedPreference[] }
 export interface Backup { id: string; createdAt: string; count: number; action?: string; ids?: string[] }
 export interface BenchmarkConditions { experiment: string; resolution: string; graphics: string; gameBuild: string; fpsCap: number; verified: boolean }
 export interface CaptureOptions { processName: string; phase: 'before' | 'after'; context: 'Gaming' | 'Streaming' | 'Recording'; seconds: number; scenario: string; telemetry?: boolean; benchmark?: BenchmarkConditions }
@@ -66,10 +68,10 @@ declare global {
       scan(): Promise<SystemScan>;
       scanPeripherals(): Promise<PeripheralScan>;
       getTweakStatus(): Promise<TweakStatusReport>;
-      applyTweaks(ids: string[]): Promise<{ backupId: string | null; applied: string[]; skipped?: string[]; message: string }>;
+      applyTweaks(ids: string[]): Promise<PreferenceResult>;
       restoreBackup(id: string): Promise<{ message: string }>;
       listBackups(): Promise<Backup[]>;
-      changePreferences(action: 'disable' | 'defaults' | 'snapshot', ids: string[]): Promise<{ message: string; backupId: string | null }>;
+      changePreferences(action: 'disable' | 'defaults' | 'snapshot', ids: string[]): Promise<PreferenceResult>;
       listPrograms(): Promise<string[]>;
       obsStatus(): Promise<{ connected: boolean }>;
       connectObs(input: { port: number; password: string }): Promise<{ connected: boolean }>;

@@ -65,9 +65,46 @@ function Convert-RegistryValue($specification) {
 
 function Write-Preference($specification) {
     $converted = Convert-RegistryValue $specification
-    $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($specification.path)
+    # Existing keys only need SetValue. CreateSubKey requests broader access,
+    # which can fail on protected policy keys even when values are writable.
+    $key = Open-PreferenceWriter $specification.path
+    if ($null -eq $key) { $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey($specification.path) }
     try { $key.SetValue($specification.name, $converted.value, $converted.kind) }
     finally { $key.Dispose() }
+}
+
+function Open-PreferenceWriter($path) {
+    return [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($path, [Microsoft.Win32.RegistryKeyPermissionCheck]::Default, [Security.AccessControl.RegistryRights]::SetValue)
+}
+
+function Assert-PreferenceWritable($specification) {
+    # Opening a handle checks access without creating a key or writing a value.
+    $key = Open-PreferenceWriter $specification.path
+    if ($null -ne $key) { $key.Dispose(); return }
+    if ($specification.remove) { return }
+    $parent = [string]$specification.path
+    while ($parent.Contains('\')) {
+        $parent = $parent.Substring(0, $parent.LastIndexOf('\'))
+        $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($parent, [Microsoft.Win32.RegistryKeyPermissionCheck]::Default, [Security.AccessControl.RegistryRights]::CreateSubKey)
+        if ($null -ne $key) { $key.Dispose(); return }
+    }
+    throw ('Windows could not verify access to HKCU\' + $specification.path + '. Leave this tweak out of the plan.')
+}
+
+function Test-AccessFailure($exception) {
+    while ($null -ne $exception) {
+        if ($exception -is [UnauthorizedAccessException] -or $exception -is [Security.SecurityException]) { return $true }
+        $exception = $exception.InnerException
+    }
+    return $false
+}
+
+function Test-OriginalPreference($record) {
+    $current = Read-Preference $record
+    if ($current.existed -ne $record.existed) { return $false }
+    if (-not $record.existed) { return $true }
+    if ($current.kind -ne $record.kind) { return $false }
+    return (ConvertTo-Json -InputObject $current.value -Depth 5 -Compress) -ceq (ConvertTo-Json -InputObject $record.value -Depth 5 -Compress)
 }
 
 function Invoke-Power($arguments) {
@@ -140,9 +177,12 @@ function Restore-State($backup) {
     [Array]::Reverse($records)
     foreach ($record in $records) {
         try {
+            # A denied write may leave a protected value untouched. Do not
+            # request write access again when its original state already matches.
+            if (Test-OriginalPreference $record) { continue }
             if ($record.existed) { Write-Preference $record }
             else {
-                $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($record.path, $true)
+                $key = Open-PreferenceWriter $record.path
                 if ($null -ne $key) {
                     try { $key.DeleteValue($record.name, $false) } finally { $key.Dispose() }
                 }
@@ -211,27 +251,41 @@ try {
             foreach ($id in $ids) { if ($id -isnot [string] -or -not $manifest.ContainsKey($id)) { throw 'Unsupported optimization ID.' } }
             $targetPower = if ($operation -eq 'apply') { '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c' } else { '381b4222-f694-41f0-9685-ff5bb260df2e' }
             $skipped = @()
+            $blocked = @()
             $specifications = @{}
             foreach ($id in $ids) {
                 $desired = @()
                 foreach ($original in $manifest[$id]) {
                     $remove = $operation -eq 'defaults' -or ($operation -eq 'disable' -and $null -eq $original.disabledValue)
                     $value = if ($operation -eq 'disable') { $original.disabledValue } else { $original.value }
-                    $desired += [ordered]@{ path = $original.path; name = $original.name; kind = $original.kind; value = $value; remove = $remove }
+                    $desired += [ordered]@{ id = $id; path = $original.path; name = $original.name; kind = $original.kind; value = $value; remove = $remove }
                 }
-                $desiredMatches = $operation -ne 'snapshot'
-                if ($id -eq 'power-plan' -and $desiredMatches) {
-                    $active = Invoke-Power @('/getactivescheme')
-                    $desiredMatches = $active -match $targetPower
-                } else {
-                    foreach ($specification in $desired) {
-                        $current = Read-Preference $specification
-                        if ($specification.remove) { if ($current.existed) { $desiredMatches = $false } }
-                        elseif (-not $current.existed -or $current.kind -ne $specification.kind -or [string]$current.value -cne [string]$specification.value) { $desiredMatches = $false }
+                try {
+                    $desiredMatches = $operation -ne 'snapshot'
+                    if ($id -eq 'power-plan' -and $desiredMatches) {
+                        $active = Invoke-Power @('/getactivescheme')
+                        $desiredMatches = $active -match $targetPower
+                    } else {
+                        foreach ($specification in $desired) {
+                            $current = Read-Preference $specification
+                            if ($specification.remove) { if ($current.existed) { $desiredMatches = $false } }
+                            elseif (-not $current.existed -or $current.kind -ne $specification.kind -or [string]$current.value -cne [string]$specification.value) { $desiredMatches = $false }
+                        }
                     }
+                    if ($desiredMatches) { $skipped += $id; continue }
+                    if ($operation -ne 'snapshot') {
+                        foreach ($specification in $desired) { Assert-PreferenceWritable $specification }
+                    }
+                } catch {
+                    if ($operation -eq 'snapshot') { throw }
+                    $blocked += @{ id = $id; message = ('Windows could not access this preference for the selected action: ' + $_.Exception.Message) }
+                    continue
                 }
-                if ($desiredMatches) { $skipped += $id; continue }
                 foreach ($specification in $desired) { $specifications[$specification.path + '|' + $specification.name] = $specification }
+            }
+            if ($blocked.Count -gt 0) {
+                $data = @{ backupId = $null; applied = @(); skipped = $skipped; blocked = @($blocked); message = 'No changes were made. Remove the blocked tweaks, review the remaining plan, then apply again. Registry permissions were not changed.' }
+                break
             }
             $ids = @($ids | Where-Object { $_ -notin $skipped })
             if ($ids.Count -eq 0) {
@@ -263,19 +317,23 @@ try {
             if ($operation -eq 'snapshot') { $backup.createdKeys = @() }
             $file = Join-Path $backupDirectory ($backup.id + '.json')
             Save-Backup $backup $file
+            $writing = $null
             try {
                 if ($operation -ne 'snapshot') {
                     foreach ($specification in $specifications.Values) {
+                        $writing = $specification
                         if ($specification.remove) {
-                            $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($specification.path, $true)
+                            $key = Open-PreferenceWriter $specification.path
                             if ($null -ne $key) { try { $key.DeleteValue($specification.name, $false) } finally { $key.Dispose() } }
                         } else { Write-Preference $specification }
                     }
+                    $writing = $null
                     if ($ids -contains 'power-plan') { $null = Invoke-Power @('/setactive', $targetPower) }
                 }
                 $backup.status = 'applied'
                 Save-Backup $backup $file
             } catch {
+                $applyException = $_.Exception
                 $applyFailure = $_.Exception.Message
                 try {
                     Restore-State $backup
@@ -285,6 +343,18 @@ try {
                     $backup.status = 'rollback-failed'
                     try { Save-Backup $backup $file } catch { }
                     throw ('The change failed and rollback needs attention. Restore backup ' + $backup.id + '. Original error: ' + $applyFailure)
+                }
+                # Permissions or a protection provider can change after preflight.
+                # Offer a smaller plan only after the entire transaction rolls back.
+                if ($null -ne $writing -and (Test-AccessFailure $applyException)) {
+                    $blocked = @()
+                    foreach ($id in $ids) {
+                        if (@($manifest[$id] | Where-Object { $_.path -eq $writing.path }).Count -gt 0) {
+                            $blocked += @{ id = $id; message = ('Windows denied the registry write at HKCU\' + $writing.path + ': ' + $applyFailure) }
+                        }
+                    }
+                    $data = @{ backupId = $null; applied = @(); skipped = $skipped; blocked = @($blocked); message = 'No changes were kept. The transaction was rolled back. Remove the blocked tweaks and review the remaining plan before applying again.' }
+                    break
                 }
                 throw ('No changes were kept. The transaction was rolled back: ' + $applyFailure)
             }

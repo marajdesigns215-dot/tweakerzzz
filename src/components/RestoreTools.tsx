@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CheckCheck, History, LoaderCircle, RotateCcw, ShieldCheck } from 'lucide-react';
-import type { TweakStatusReport } from '../types';
+import { BlockedTweaks } from './BlockedTweaks';
+import type { TweakStatusReport, BlockedPreference } from '../types';
 import { tweaks } from '../data/tweaks';
 import { Diagnostics, TweakStateBadge } from './SystemStatus';
 
@@ -27,12 +28,14 @@ export function RestoreTools({ report, checking, refresh, changed, notify }: { r
   const [review, setReview] = useState<'disable' | 'defaults' | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [blocked, setBlocked] = useState<{ items: BlockedPreference[]; message: string }>({ items: [], message: '' });
   const states = new Map(report?.tweaks.map(t => [t.id, t]) ?? []);
   async function run(action: 'disable' | 'defaults' | 'snapshot') {
     if (!window.tweaker) return;
-    setBusy(true); setError('');
+    setBusy(true); setError(''); setBlocked({ items: [], message: '' });
     try {
       const result = await window.tweaker.changePreferences(action, action === 'snapshot' ? automatic.map(t => t.id) : selected);
+      if (result.blocked?.length) { setBlocked({ items: result.blocked, message: result.message }); return; }
       setReview(null); notify(result.message); await changed();
     } catch (e) { setError(String(e)); }
     finally { await refresh(); setBusy(false); }
@@ -41,7 +44,7 @@ export function RestoreTools({ report, checking, refresh, changed, notify }: { r
     try { await window.tweaker!.openSettings('protection'); } catch (e) { setError(String(e)); }
   }
   return <div className="restore-tools">
-    <Diagnostics title="Restore center needs attention" error={error}/>
+    <Diagnostics title="Restore center needs attention" error={error}/><BlockedTweaks blocked={blocked.items.filter(item => selected.includes(item.id))} message={blocked.message} busy={busy} remove={() => { setSelected(ids => ids.filter(id => !blocked.items.some(item => item.id === id))); setReview(null); }}/>
     <div className="two-columns">
       <section className="panel restore-snapshot"><History size={26}/><h2>Save my current settings</h2><p className="body-copy">Save all {automatic.length} supported automatic preferences exactly as they are now, including values changed by you or another app, plus your active power plan. This snapshot does not modify Windows.</p><button className="button secondary" disabled={!native || busy || checking} onClick={() => run('snapshot')}>{busy ? <LoaderCircle size={16} className="spin"/> : <ShieldCheck size={16}/>}Save settings snapshot</button><p className="fine-print">This covers supported preferences only. Restore snapshots and change backups in newest-first order.</p></section>
       <section className="panel restore-snapshot"><ShieldCheck size={26}/><h2>Windows restore point</h2><p className="body-copy">Open Windows System Protection, select your system drive, then choose <strong>Create…</strong> and name your restore point. If protection is Off, use <strong>Configure…</strong> to enable it first.</p><button className="button secondary" disabled={!native} onClick={protection}>Open System Protection</button><p className="fine-print">Windows handles creation and may request administrator permission. Tweakerzzz cannot confirm a restore point was created. A restore point does not back up personal files.</p></section>

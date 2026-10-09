@@ -1,4 +1,8 @@
-Download **Tweakerzzz-Setup-0.6.0-x64.exe** below. Quit the old app (including its tray icon), then run the installer. No Node/npm or PowerShell launch commands are needed.
+Download **Tweakerzzz-Setup-0.6.1-x64.exe** below. Quit the old app (including its tray icon), then run the installer. No Node/npm or PowerShell launch commands are needed.
+
+**Fixed in v0.6.1 — protected registry keys:** Windows can deny writes to Edge policy keys. Existing keys now request only SetValue access. A read-only permission preflight identifies blocked tweaks before changes begin; the review offers **Remove blocked tweaks**, followed by a separate review/apply of the remaining plan. This also covers disabling tweaks and Windows defaults. Late access denials roll back the whole transaction before returning the affected tweak names. No registry ownership, ACL, organization policy, or execution-policy changes are made. Edge’s own settings are offered as a manual alternative when available. Real Windows regression tests reproduce restricted registry rights on disposable test keys and verify exact rollback.
+
+**Already on v0.6.0?** Use **Updates → Check for updates → Download → Review installation → Install & restart** to receive this fix.
 
 **New in v0.6.0 — optional in-app updates:** Open **Updates → Check for updates** to read release notes, download with progress/cancellation, and choose **Review installation → Install & restart**. Checks and downloads are manual, and a downloaded update never installs just because you close the app. Installation is blocked while an FPS recording, Windows change, resolution test, or color observer needs to finish. Saved profiles, backups, and recordings are retained. Downloads use release checksums; builds remain unsigned. Users on 0.5.2 or older need this installer once to enable future in-app updates.
 

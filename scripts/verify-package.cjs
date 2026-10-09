@@ -63,7 +63,7 @@ function verify() {
   assert.equal(update.files[0].url, installerName);
   assert.equal(update.files[0].sha512, crypto.createHash('sha512').update(fs.readFileSync(installer)).digest('base64'), 'Updater checksum mismatch');
   assert.equal(update.files[0].size, fs.statSync(installer).size);
-  assert.ok(update.releaseNotes.includes('optional in-app updates'));
+  assert.equal(update.releaseNotes.trim(), fs.readFileSync(path.join(root, 'docs', 'UPDATE_NOTES.md'), 'utf8').trim());
   assert.ok(fs.statSync(installer + '.blockmap').size > 0);
   const sum = crypto.createHash('sha256').update(fs.readFileSync(installer)).digest('hex');
   fs.writeFileSync(path.join(root, 'release', 'SHA256SUMS.txt'), `${sum}  ${installerName}\n`);

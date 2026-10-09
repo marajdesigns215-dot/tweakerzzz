@@ -179,14 +179,14 @@ export const tweaks: Tweak[] = [
     id: 'edge-background', title: 'Stop Edge background mode',
     description: 'Stop supported Edge activity after the browser closes.', category: 'Windows', risk: 'Low', impact: 'Resources',
     recommended: true, mode: 'automatic',
-    details: 'Disables Edge background mode using its supported policy. Background extensions and related notifications may no longer run after closing Edge. Embedded WebView2 applications are separate.',
+    details: 'Disables Edge background mode using its supported policy. Background extensions and related notifications may no longer run after closing Edge. Embedded WebView2 applications are separate. If Windows blocks the Edge policy key, leave this tweak out and use Edge Settings → System and performance when the option is available.',
     tags: ['Browser', 'Background activity', 'Registry'],
   },
   {
     id: 'edge-startup-boost', title: 'Disable Edge startup boost',
     description: 'Keep Edge from preloading for a faster browser launch.', category: 'Windows', risk: 'Low', impact: 'Resources',
     recommended: true, mode: 'automatic',
-    details: 'Disables Edge startup boost using its supported policy. This trades a potentially slower first browser launch for fewer preloaded browser processes.',
+    details: 'Disables Edge startup boost using its supported policy. This trades a potentially slower first browser launch for fewer preloaded browser processes. If Windows blocks the Edge policy key, leave this tweak out and use Edge Settings → System and performance when the option is available.',
     tags: ['Browser', 'Startup', 'Registry'],
   },
   {

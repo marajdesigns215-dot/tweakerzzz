@@ -68,6 +68,16 @@ jobs:
             throw
           }
 
+      - name: Verify protected-registry handling on disposable test keys
+        shell: powershell
+        run: |
+          try { ./tests/windows.permissions.ps1 }
+          catch {
+            $detail = ($_.ToString() + ' ' + $_.InvocationInfo.PositionMessage) -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'
+            Write-Output "::error title=Registry permission regression failed::$detail"
+            throw
+          }
+
       - name: Parse native scripts with Windows PowerShell 5.1
         shell: powershell
         run: |

@@ -1,12 +1,13 @@
-Tweakerzzz 0.6.0 adds optional in-app updates.
+Tweakerzzz 0.6.1 fixes plans blocked by protected registry keys.
 
-- Open Updates to check the official GitHub tester releases.
-- Read release notes, then choose whether to download.
-- Follow download progress or cancel it.
-- Review installation and choose Install & restart, or Later.
-- Installation waits for recordings, Windows changes, and display tests to finish.
-- Profiles, backups, and recordings are retained.
+- Existing keys now request only the access needed to change their values.
+- A permission preflight checks selected tweaks before any preferences change.
+- Blocked tweaks are named in the review with a Remove blocked tweaks button.
+- Review and apply the remaining plan yourself; blocked tweaks are never silently skipped or automatically retried.
+- Edge background mode and startup boost include a manual settings guide when their policy key is protected.
+- Late permission failures still roll back the transaction before offering a smaller plan.
+- Restore center uses the same handling for disabling tweaks and returning to defaults.
 
-Checks are manual. Waiting updates never install automatically when you close the app. Downloads are verified against the release checksum. This remains an unsigned Windows x64 tester build.
+Registry permissions and managed policies are left intact. Your profiles, backups and FPS recordings are preserved. This is an unsigned Windows x64 tester build.
 
-Users on 0.5.2 or older must install 0.6.0 manually once; future updates can be installed from the Updates tab.
+On v0.6.0, use Updates → Check for updates → Download → Review installation → Install & restart. Older versions need a manual installer upgrade.
