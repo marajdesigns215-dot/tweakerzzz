@@ -58,15 +58,16 @@ function createVendorLookup({read=fetchMetadata}={}) {
   return {
     async nvidia(component, report, branch, signal, cachedRead=read) {
       if(!/\bGeForce\b/i.test(component.name)) throw new Error('Automatic NVIDIA lookup currently supports GeForce models. Use the official selector for workstation/enterprise branches.');
+      if(report.computer.architecture !== 'x64') throw new Error('The x64 system architecture required by this driver source was not confirmed.');
       const [products,series,systems]=await Promise.all([3,2,4].map(async type=>parseLookup(await cachedRead(`https://www.nvidia.com/Download/API/lookupValueSearch.aspx?TypeID=${type}`,{signal}))));
       const product=pickNvidiaProduct(products,series,component.name,report.computer.portable);
       const osName=report.hardware.os.name;
       const os=systems.filter(r=>/Windows 11/i.test(osName) ? r.name==='Windows 11' : /Windows 10/i.test(osName) ? r.name==='Windows 10 64-bit' : false);
       if(os.length!==1) throw new Error('An exact Windows x64 driver target could not be identified.');
       const url=new URL('https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/services/AjaxDriverService.php');
-      url.search=new URLSearchParams({func:'DriverManualLookup',pfid:product.id,osID:os[0].id,dch:'1',numberOfResults:'10',languageCode:'1033'}).toString();
+      url.search=new URLSearchParams({func:'DriverManualLookup',pfid:product.id,osID:os[0].id,dch:'1',upCRD:branch==='studio'?'1':'0',numberOfResults:'10',languageCode:'1033'}).toString();
       const result=parseNvidiaDrivers(JSON.parse(await cachedRead(url.href,{signal})),branch);
-      return {...result,match:`Exact NVIDIA catalog model: ${product.name} · ${os[0].name}`,installed:nvidiaVersion(component.values['Installed driver'])};
+      return {...result,match:`Exact NVIDIA catalog model: ${product.name} · ${os[0].name}${component.source && component.source !== 'nvidia' ? ' · Check OEM validation and laptop prerequisites before choosing this generic NVIDIA release.' : ''}`,installed:nvidiaVersion(component.values['Installed driver'])};
     },
 
   };
