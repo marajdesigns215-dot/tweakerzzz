@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('tweaker', Object.freeze({
   installUpdate: () => ipcRenderer.invoke('tweaker:update-install'),
   openUpdateRelease: () => ipcRenderer.invoke('tweaker:update-release'),
   scanDrivers: () => ipcRenderer.invoke('tweaker:drivers'),
-  checkComponentUpdates: branch => ipcRenderer.invoke('tweaker:component-update-check', branch),
+  checkComponentUpdates: (branch, componentIds) => ipcRenderer.invoke('tweaker:component-update-check', branch, componentIds),
   getComponentUpdateStatus: () => ipcRenderer.invoke('tweaker:component-update-status'),
   cancelComponentUpdates: () => ipcRenderer.invoke('tweaker:component-update-cancel'),
   openComponentRelease: id => ipcRenderer.invoke('tweaker:component-update-link', id),

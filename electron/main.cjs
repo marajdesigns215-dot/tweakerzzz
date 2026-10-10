@@ -238,7 +238,7 @@ function registerHandlers() {
   handle('tweaker:driver-update-status', () => driverUpdates.status());
   handle('tweaker:driver-update-cancel', () => driverUpdates.cancel());
   handle('tweaker:driver-update-link', (id, index) => shell.openExternal(driverUpdates.link(id, index)));
-  handle('tweaker:component-update-check', branch => { ensureNotRecording(); if(drivers.isBusy()) throw new Error('Wait for the hardware scan to finish.'); return componentUpdates.check(lastDriverReport,branch); });
+  handle('tweaker:component-update-check', (branch, componentIds) => { ensureNotRecording(); if(drivers.isBusy() || hardwareMemory.isBusy()) throw new Error('Wait for the hardware scan to finish.'); return componentUpdates.check(lastDriverReport,branch,componentIds); });
   handle('tweaker:component-update-status', () => componentUpdates.status());
   handle('tweaker:component-update-cancel', () => componentUpdates.cancel());
   handle('tweaker:component-update-link', id => shell.openExternal(componentUpdates.link(id)));

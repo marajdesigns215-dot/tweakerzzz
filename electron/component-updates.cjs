@@ -23,8 +23,10 @@ function availablePackages(component, devices, offers) {
   return matches;
 }
 function baseItem(component, report, offers, updateError) {
-  const item={componentId:component.id,installedVersion:installed(component),installedRaw:installed(component),latestVersion:'',status:'unverified',source:'',date:'',url:'',notes:'',message:'The newest manufacturer release has not been verified for this exact model.',packages:availablePackages(component,report.devices,offers)};
-  if(component.category==='Processor' || component.category==='Motherboard') return {...item,status:item.packages.length ? 'offered' : 'not-applicable',message:(component.category==='Processor' ? 'Reported Windows processor drivers are separate from CPU firmware. CPU support also comes through chipset/platform packages and the exact motherboard BIOS.' : 'Motherboard platform drivers have individual versions; there is no single board driver version. The BIOS card shows firmware separately.') + (updateError ? ` Update source unavailable: ${updateError}` : offers && !item.packages.length ? ' No exact device-matched Windows Update offers were returned; this does not establish that all platform packages are current.' : '')};
+  const matched=report.devices.filter(d=>component.deviceIds.includes(d.id));
+  const item={componentId:component.id,installedVersion:installed(component),installedRaw:installed(component),latestVersion:'',status:'unverified',source:'',date:'',url:'',notes:'',message:'The newest manufacturer release has not been verified for this exact model.',windowsUpdateState:updateError?'unavailable':offers?(offers.complete===true?'complete':'partial'):'not-checked',packages:availablePackages(component,report.devices,offers)};
+  if(component.category==='BIOS / UEFI') return {...item,status:'manual-required',windowsUpdateState:'not-checked',message:'Verify BIOS releases on the exact motherboard or OEM system support page, including the hardware revision. Automatic latest-BIOS verification is unavailable. Windows firmware-driver versions are not BIOS version numbers.'};
+  if(component.category==='Processor' || component.category==='Motherboard') return {...item,status:item.packages.length ? 'offered' : matched.length ? 'unverified' : 'manual-required',source:offers?'Windows Update — applicable offers':'',message:(component.category==='Processor' ? 'Checks the detected Windows processor drivers. Chipset packages and BIOS/microcode support must also be reviewed on the exact platform support page.' : 'Checks the detected chipset/platform drivers individually. There is no single motherboard driver version; BIOS firmware and manufacturer chipset bundles need a separate review.') + (updateError ? ` Update source unavailable: ${updateError}` : offers && !item.packages.length ? ' No exact device-matched Windows Update offers were returned; this does not establish that all platform packages are current.' : '') + (offers && offers.complete!==true ? ' The Windows Update search was partial.' : '')};
   if(/NVIDIA/i.test(component.name) && component.category==='Graphics') item.installedVersion=nvidiaVersion(item.installedRaw) || item.installedRaw;
   if(item.packages.length) {
     const unique=[...new Set(item.packages.map(p=>p.latestVersion))];
@@ -35,22 +37,32 @@ function baseItem(component, report, offers, updateError) {
     if(component.category==='Graphics' && /NVIDIA/i.test(component.name) && item.latestVersion) item.latestVersion=nvidiaVersion(item.latestVersion) || item.latestVersion;
   } else if(updateError && ['Graphics','Peripherals','Audio'].includes(component.category)) item.message=`Update source unavailable. ${updateError}`;
   else if(offers && ['Graphics','Peripherals','Audio'].includes(component.category)) item.message='No exact device-matched update offer was returned. This does not establish that the newest manufacturer release is installed.';
+  if(!matched.length) {item.status='manual-required';item.message='No driver record could be associated reliably with this component. Rescan or use the exact manufacturer support page; no latest version is assumed.';}
+  if(offers && offers.complete!==true) item.message+=' The Windows Update search was partial.';
   return item;
 }
 function createComponentUpdateChecker({windowsUpdates,lookup=createVendorLookup(),read=fetchMetadata,now=()=>new Date().toISOString()}={}) {
-  let checking=null,latest=null,controller=null,closed=false;
+  let checking=null,latest=null,controller=null,closed=false,activeIds=[];
   return {
-    check(report,branch='game-ready') {
+    check(report,branch='game-ready',componentIds) {
       if(closed) throw new Error('The update checker is closing.');
       if(checking) throw new Error('A latest-version check is already running.');
       if(!report || !report.components) throw new Error('Scan this PC before checking its latest releases.');
       if(!['game-ready','studio'].includes(branch)) throw new Error('Invalid NVIDIA release branch.');
-      latest=null;controller=new AbortController();const signal=controller.signal;
+      const eligible=report.components.filter(c=>CATEGORIES.includes(c.category));
+      if(componentIds!==undefined && (!Array.isArray(componentIds) || !componentIds.length || componentIds.length>500 || new Set(componentIds).size!==componentIds.length || componentIds.some(id=>typeof id!=='string' || id.length>200 || !eligible.some(c=>c.id===id)))) throw new Error('Select components from the current hardware scan.');
+      const components=componentIds===undefined ? eligible : eligible.filter(c=>componentIds.includes(c.id));
+      if(!components.length) throw new Error('No supported components were reported. Scan this PC first.');
+      activeIds=components.map(c=>c.id);
+      const retained=latest?.scannedAt===report.scannedAt && latest.branch===branch ? latest.items.filter(i=>!activeIds.includes(i.componentId)) : [];
+      // Invalidate only the requested components; unrelated checks keep their own timestamps.
+      latest=retained.length ? {...latest,items:retained} : null;
+      controller=new AbortController();const signal=controller.signal;
       const cache=new Map();
       const cachedRead=(url,options)=>{if(!cache.has(url)) cache.set(url,read(url,options));return cache.get(url);};
       checking=(async()=>{
-        const components=report.components.filter(c=>CATEGORIES.includes(c.category));
-        const nativePromise=windowsUpdates.check().then(offers=>({offers})).catch(e=>({error:String(e.message || e).slice(0,1000)}));
+        const canMatchWindows=components.some(c=>c.category!=='BIOS / UEFI' && report.devices.some(d=>c.deviceIds.includes(d.id)));
+        const nativePromise=canMatchWindows ? windowsUpdates.check().then(offers=>({offers})).catch(e=>({error:String(e.message || e).slice(0,1000)})) : Promise.resolve({});
         const vendorPromises=components.map(async c=>{
           try {
             if(c.category==='Graphics' && /NVIDIA/i.test(c.name)) return {result:await lookup.nvidia(c,report,branch,signal,cachedRead)};
@@ -68,11 +80,12 @@ function createComponentUpdateChecker({windowsUpdates,lookup=createVendorLookup(
           }
           return vendor.error ? {...base,message:`Manufacturer lookup unavailable: ${vendor.error} ${base.message}`} : base;
         });
-        latest={checkedAt:now(),scannedAt:report.scannedAt,branch,items,windowsUpdateError:windows.error || ''};return latest;
-      })().finally(()=>{checking=null;controller=null;});
+        const checkedAt=now();
+        latest={checkedAt,scannedAt:report.scannedAt,branch,items:[...retained,...items.map(i=>({...i,checkedAt}))],windowsUpdateError:windows.error || ''};return latest;
+      })().finally(()=>{checking=null;controller=null;activeIds=[];});
       return checking;
     },
-    status:()=>({checking:!!checking,result:latest}),
+    status:()=>({checking:!!checking,result:latest,componentIds:[...activeIds]}),
     invalidate:()=>{if(checking) throw new Error('Finish or cancel the latest-version check before rescanning.');latest=null;},
     link(id) { const item=latest?.items.find(i=>i.componentId===id);const url=officialReleaseUrl(item?.url);if(!url) throw new Error('Verified manufacturer release page is unavailable.');return url; },
     cancel:()=>{controller?.abort();windowsUpdates.cancel();},

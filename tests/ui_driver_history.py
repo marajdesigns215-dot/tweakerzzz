@@ -31,7 +31,7 @@ with sync_playwright() as p:
     page.get_by_role('button',name='Scan drivers & devices').click()
     expect(page.locator('.component-card')).to_have_count(3)
     expect(page.locator('.component-card').filter(has_text='Unidentified SSD').get_by_role('button')).to_have_count(0)
-    page.locator('.component-card').filter(has_text='AMD Radeon fixture').get_by_role('button').click()
+    page.locator('.component-card').filter(has_text='AMD Radeon fixture').get_by_role('button',name='Official updates & release notes').click()
     assert ['source','amd'] in page.evaluate('window.calls')
     page.get_by_label('Hardware component category',exact=True).select_option('BIOS / UEFI');expect(page.locator('.component-card')).to_have_count(1)
     page.get_by_label('Hardware component category',exact=True).select_option('All components')

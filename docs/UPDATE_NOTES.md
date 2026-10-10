@@ -1,11 +1,10 @@
-Tweakerzzz 0.7.2 remembers your PC between launches.
+Tweakerzzz 0.7.3 adds update controls for every displayed hardware category.
 
-- Successful PC, driver and peripheral scans are saved locally and restored automatically. Scan once in this version; subsequent launches reuse that report without another hardware scan.
-- Saved reports show their original scan date. Rescan after hardware or driver changes; online latest-version checks remain manual.
-- Drivers & devices keeps its report when switching tabs.
-- PC scanner → Forget saved scan clears remembered reports while keeping recordings, profiles, backups and change history.
-- Imported reports cannot replace your remembered PC. Damaged files, failed writes and scans arriving out of order are handled without silently replacing newer results.
-- FPS recordings still collect fresh hardware and settings. Windows tweak detection remains live.
-- Includes the installed/latest driver comparisons and hardware filtering from 0.7.1.
+- Check all hardware updates, select a category, or check one component card.
+- Covers graphics, processor drivers, motherboard/chipset drivers, peripherals and audio using exact device-matched Windows Update offers. NVIDIA GeForce retains official manufacturer release checks.
+- BIOS has its own update-source review, installed firmware version and recognized manufacturer link. Automatic latest BIOS verification remains unavailable; firmware and manufacturer-only packages need an exact-model check.
+- Individual checks retain other components' results and their original check times.
+- Failed and partial update searches remain distinct from no matching offers. No missing result is presented as up to date.
+- Saved PC scans, profiles, recordings, backups and change history are retained.
 
-This is an unsigned Windows x64 beta. Use Updates → Check for updates → Download → Review installation → Install & restart. Finish active scans, recordings and Windows operations before installing.
+This is an unsigned Windows x64 beta. Use Updates → Check for updates → Download → Review installation → Install & restart. Hardware update checks do not install drivers or flash firmware.

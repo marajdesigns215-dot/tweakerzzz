@@ -46,7 +46,7 @@ test('per-component results retain manufacturer success across Windows Update fa
   let fail=false;
   const lookup={nvidia:async()=>{if(fail)throw Error('Source unavailable');return {version:'617.42',installed:'617.42',source:'NVIDIA Game Ready · WHQL',url:'https://www.nvidia.com/en-us/drivers/details/123/',notes:'Fix',date:'2026-10-08',match:'Exact model'};}};
   const windowsUpdates={check:async()=>{throw Error('Update service unavailable');},cancel(){}};
-  const m=createComponentUpdateChecker({lookup,windowsUpdates});const first=await m.check(report());assert.equal(first.items.length,2);assert.equal(first.items[0].status,'current');assert.equal(first.items[1].status,'not-applicable');assert.match(first.windowsUpdateError,/unavailable/);
+  const m=createComponentUpdateChecker({lookup,windowsUpdates});const first=await m.check(report());assert.equal(first.items.length,2);assert.equal(first.items[0].status,'current');assert.equal(first.items[1].status,'manual-required');assert.match(first.windowsUpdateError,/unavailable/);
   assert.match(m.link('gpu'),/nvidia/);assert.throws(()=>m.link('https://evil.invalid'));
   fail=true;const second=await m.check(report());assert.equal(second.items[0].latestVersion,'');assert.equal(second.items[0].status,'unverified');assert.throws(()=>m.link('gpu'));
   m.invalidate();assert.equal(m.status().result,null);await m.close();
@@ -95,4 +95,33 @@ test('history keeps removed platform/peripheral records visible while hiding unr
   assert.equal(visibleChange(change('HIDCLASS','USB mouse','HID\\OLD'),null),true);
   assert.equal(visibleChange(change('SYSTEM','Microsoft software bus','ROOT\\OLD'),null),false);
   assert.equal(visibleChange(change('NET','Virtual network adapter','ROOT\\OLD'),null),false);
+});
+
+test('each visible component checks only its own matched devices and selects only relevant manufacturer lookups',async()=>{
+  const r=report(), categories=['Graphics','Processor','Motherboard','Peripherals','Audio'];
+  r.components=categories.map((category,i)=>({id:'part'+i,category,name:category==='Graphics'?'Unknown GPU vendor':category+' test part',values:{'Installed driver':'1.2.3.4'},deviceIds:['dev'+i]}));
+  r.devices=categories.map((_,i)=>({...device,id:'dev'+i,name:'Local device '+i,instanceId:'LOCAL\\'+i,hardwareIds:['LOCAL\\'+i],version:'1.2.3.4'}));
+  const packages=r.devices.map((d,i)=>({id:'offer'+i,hardwareId:d.hardwareIds[0],version:'1.2.4.0',manufacturer:'Local provider',driverClass:categories[i],driverDate:'2026-10-09',title:'Local package '+i,links:[],description:'Published local notes'}));
+  let calls=0,tick=0;const m=createComponentUpdateChecker({windowsUpdates:{check:async()=>{calls++;return {complete:true,packages};},cancel(){}},lookup:{nvidia:async()=>assert.fail('Unrelated NVIDIA lookup')},now:()=>new Date(1000*++tick).toISOString()});
+  for(const c of r.components){const result=await m.check(r,'game-ready',[c.id]);const item=result.items.find(i=>i.componentId===c.id);assert.equal(item.status,'offered');assert.deepEqual(item.packages.map(p=>p.deviceId),c.deviceIds);assert.equal(item.windowsUpdateState,'complete');}
+  assert.equal(calls,5);assert.equal(m.status().result.items.length,5);assert.equal(new Set(m.status().result.items.map(i=>i.checkedAt)).size,5);
+  const before=JSON.stringify(m.status());for(const ids of [null,[],['missing'],['part0','part0'],['part0',{}],Array(501).fill('part0')])assert.throws(()=>m.check(r,'game-ready',ids),/Select components/);assert.equal(JSON.stringify(m.status()),before);assert.equal(calls,5);await m.close();
+});
+test('BIOS review never fabricates automatic firmware checks, offers or versions',async()=>{
+  const r=report();r.components.push({id:'bios',category:'BIOS / UEFI',name:'Different OEM board',values:{'BIOS version':'F25'},deviceIds:[]});
+  const m=createComponentUpdateChecker({windowsUpdates:{check:async()=>assert.fail('BIOS must not run unrelated Windows driver query'),cancel(){}},lookup:{nvidia:async()=>assert.fail('BIOS must not run NVIDIA query')}});
+  const result=await m.check(r,'game-ready',['bios']);assert.equal(result.items.length,1);const item=result.items[0];assert.equal(item.status,'manual-required');assert.equal(item.installedVersion,'F25');assert.equal(item.latestVersion,'');assert.equal(item.windowsUpdateState,'not-checked');assert.match(item.message,/exact motherboard or OEM/);assert.deepEqual(item.packages,[]);await m.close();
+});
+test('scoped rechecks and cancellation invalidate their own results while preserving unrelated dated results',async()=>{
+  const r=report();r.components.push({...gpu,id:'audio',category:'Audio',name:'Local audio',deviceIds:['audio-device']});r.devices.push({...device,id:'audio-device'});
+  let finish,hold=false,fail=false;const m=createComponentUpdateChecker({windowsUpdates:{check:()=>hold?new Promise(resolve=>finish=resolve):fail?Promise.reject(Error('Source down')):Promise.resolve({complete:true,packages:[]}),cancel(){}},lookup:{nvidia:async()=>({version:'617.42',source:'NVIDIA',match:'Exact model'})}});
+  await m.check(r,'game-ready',['gpu']);const original=structuredClone(m.status().result.items[0]);
+  fail=true;await m.check(r,'game-ready',['audio']);assert.deepEqual(m.status().result.items.find(i=>i.componentId==='gpu'),original);assert.equal(m.status().result.items.find(i=>i.componentId==='audio').windowsUpdateState,'unavailable');
+  hold=true;const pending=m.check(r,'game-ready',['audio']);assert.deepEqual(m.status().componentIds,['audio']);assert.deepEqual(m.status().result.items,[original]);m.cancel();finish({complete:true,packages:[]});await assert.rejects(pending,/cancelled/);assert.deepEqual(m.status().result.items,[original]);assert.deepEqual(m.status().componentIds,[]);await m.close();
+});
+test('platform and audio source failures and partial results never imply an up-to-date driver',async()=>{
+  const r=report();r.components=[{...gpu,id:'board',category:'Motherboard',name:'Different board'}, {...gpu,id:'audio',category:'Audio',name:'Unknown audio vendor'}];
+  let fail=true;const m=createComponentUpdateChecker({windowsUpdates:{check:async()=>{if(fail)throw Error('Windows service blocked');return {complete:false,packages:[]};},cancel(){}}});
+  const failed=await m.check(r);for(const i of failed.items){assert.equal(i.status,'unverified');assert.equal(i.windowsUpdateState,'unavailable');assert.match(i.message,/unavailable/i);assert.equal(i.latestVersion,'');}
+  fail=false;const partial=await m.check(r);for(const i of partial.items){assert.equal(i.status,'unverified');assert.equal(i.windowsUpdateState,'partial');assert.match(i.message,/partial/);}await m.close();
 });

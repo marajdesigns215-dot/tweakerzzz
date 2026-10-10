@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Cpu, Download, Fan, LoaderCircle, ScanLine } from 'lucide-react';
 import type { ComponentUpdateReport, DriverHistory, DriverInstallLog, DriverReport, DriverUpdateOffers } from '../types';
 import { visibleChange, visibleOffers, visibleParts } from '../lib/driver-visibility';
@@ -11,22 +11,30 @@ export function DriverCenter({ report, saved, scanReport }: { report: DriverRepo
   const [history, setHistory] = useState<DriverHistory | null>(null), [log, setLog] = useState<DriverInstallLog | null>(null);
   const [offers, setOffers] = useState<DriverUpdateOffers | null>(null), [checkingUpdates, setCheckingUpdates] = useState(false);
   const [versions, setVersions] = useState<ComponentUpdateReport | null>(null), [checkingVersions, setCheckingVersions] = useState(false), [branch, setBranch] = useState<'game-ready' | 'studio'>('game-ready');
+  const [updateScope, setUpdateScope] = useState('All components'), [checkingIds, setCheckingIds] = useState<string[]>([]);
+  const requestGeneration = useRef(0);
   const [historyBusy, setHistoryBusy] = useState(false), [includeIds, setIncludeIds] = useState(false);
   useEffect(() => {
     let alive = true;
     const refresh = () => {
-      window.tweaker?.getComponentUpdateStatus?.().then(v => { if (alive) { setVersions(v.result); setCheckingVersions(v.checking); } }).catch(e => { if (alive) setError(String(e)); });
+      const generation=requestGeneration.current;
+      window.tweaker?.getComponentUpdateStatus?.().then(v => { if (alive && generation===requestGeneration.current) { setVersions(v.result); setCheckingVersions(v.checking); setCheckingIds(v.componentIds || []); } }).catch(e => { if (alive && generation===requestGeneration.current) setError(String(e)); });
       window.tweaker?.getDriverHistory?.().then(v => { if (alive) setHistory(v); }).catch(e => { if (alive) setError(String(e)); });
       window.tweaker?.getDriverUpdateStatus?.().then(v => { if (alive) { setOffers(v.result); setCheckingUpdates(v.checking); } }).catch(e => { if (alive) setError(String(e)); });
     };
     refresh(); const timer = setInterval(refresh, 30000);
     return () => { alive = false; clearInterval(timer); };
   }, []);
-  async function scan() { setBusy(true); setError(''); setVersions(null); try { const next = await scanReport(); if (next.history) setHistory(next.history); } catch (e) { setError(String(e)); } finally { setBusy(false); } }
+  async function scan() { ++requestGeneration.current; setBusy(true); setError(''); setVersions(null); setUpdateScope('All components'); try { const next = await scanReport(); if (next.history) setHistory(next.history); } catch (e) { setError(String(e)); } finally { setBusy(false); } }
   async function historyAction(action: () => Promise<DriverHistory>) { setHistoryBusy(true); setError(''); try { setHistory(await action()); } catch (e) { setError(String(e)); } finally { setHistoryBusy(false); } }
   async function openSource(id: string) { try { await window.tweaker!.openDriverSource(id); } catch (e) { setError(String(e)); } }
   async function checkUpdates() { setCheckingUpdates(true); setOffers(null); setError(''); try { setOffers(await window.tweaker!.checkDriverUpdates()); } catch (e) { setError(`Update availability could not be checked. No component is marked up to date. ${String(e)}`); } finally { setCheckingUpdates(false); } }
-  async function checkVersions() { setCheckingVersions(true); setVersions(null); setError(''); try { setVersions(await window.tweaker!.checkComponentUpdates(branch)); } catch(e) { setError(String(e)); } finally { setCheckingVersions(false); } }
+  async function checkVersions(ids?: string[]) {
+    ++requestGeneration.current; const selected=ids || (report ? visibleParts(report).map(c=>c.id) : []);
+    setCheckingVersions(true); setCheckingIds(selected); setError('');
+    setVersions(v=>v && v.scannedAt===report?.scannedAt && v.branch===branch ? {...v,items:v.items.filter(i=>!selected.includes(i.componentId))} : null);
+    try { setVersions(await window.tweaker!.checkComponentUpdates(branch,ids)); } catch(e) { setError(String(e)); } finally { setCheckingVersions(false); setCheckingIds([]); }
+  }
   async function openRelease(id: string) { try { await window.tweaker!.openComponentRelease(id); } catch(e) { setError(String(e)); } }
   function exportReport() {
     const payload = { format: 'Tweakerzzz hardware and driver report', version: 1, exportedAt: new Date().toISOString(), includesDeviceIdentifiers: includeIds, report, history, componentVersions: versions, updateOffers: offers, windowsInstallationLog: log };
@@ -36,6 +44,7 @@ export function DriverCenter({ report, saved, scanReport }: { report: DriverRepo
   const guides = (report?.recommendations || []).filter(r => ['Motherboard', 'Graphics', 'CPU / chipset', 'Peripherals'].includes(r.category));
   const categories = ['All devices', ...new Set(guides.map(r => r.category))];
   const shownVersions = versions?.scannedAt === report?.scannedAt && versions?.branch === branch ? versions : null;
+  const parts=report ? visibleParts(report) : [], scopeParts=parts.filter(c=>updateScope==='All components' || c.category===updateScope);
   const shownHistory = history ? { ...history, changes: history.changes.filter(c => visibleChange(c, report)) } : null;
   const shownIds = new Set(report ? visibleParts(report).flatMap(c => c.deviceIds) : []);
   const shownLog = log ? { ...log, entries: log.entries.filter(e => e.deviceId && shownIds.has(e.deviceId)), message: `${log.message} Only entries associated with the displayed devices are shown; scan first to identify them.` } : null;
@@ -48,8 +57,19 @@ export function DriverCenter({ report, saved, scanReport }: { report: DriverRepo
     <div id="driver-view" role="tabpanel" aria-label={view}>
       {view === 'Hardware' && <>{!report ? <section className="panel"><Cpu size={28}/><h3>Start with this PC’s actual hardware</h3><p className="body-copy">Scan to identify component models and installed versions. No reference build is preloaded, and no driver or BIOS installation is performed.</p>{!window.tweaker?.scanDrivers && <p className="fine-print">Hardware scanning and update checks require the Windows desktop app.</p>}</section> : <>
         <p className="fine-print">{saved ? 'Saved driver scan' : 'Hardware scan'}: {new Date(report.scannedAt).toLocaleString()}. Rescan to refresh displayed versions after changes.</p>
-        <section className="panel component-check-controls"><div><h3>Installed vs. latest available</h3><p className="body-copy">NVIDIA GeForce releases are checked against the exact model and Windows version. Other drivers use device-matched Windows Update offers, which may lag manufacturer releases. BIOS and chipset bundle releases require checking the exact manufacturer support page.</p></div><div className="driver-toolbar">{(report.components || []).some(c => c.category === 'Graphics' && /NVIDIA/i.test(c.name)) && <label className="field-label">NVIDIA RELEASE BRANCH<select aria-label="NVIDIA release branch" value={branch} disabled={checkingVersions} onChange={e => setBranch(e.target.value as 'game-ready' | 'studio')}><option value="game-ready">Game Ready · stable WHQL</option><option value="studio">Studio · non-beta</option></select></label>}<button className="button primary" disabled={checkingVersions || busy || checkingUpdates || !window.tweaker?.checkComponentUpdates} onClick={checkVersions}>{checkingVersions ? <LoaderCircle className="spin" size={17}/> : <Download size={17}/>}Check latest versions</button>{checkingVersions && <button className="button secondary" onClick={async () => { try { await window.tweaker!.cancelComponentUpdates(); } catch(e) { setError(String(e)); } }}>Cancel version check</button>}</div><p className="fine-print">{checkingVersions ? 'Checking official sources. This can take up to two minutes. No driver packages are installed.' : shownVersions ? `Checked ${new Date(shownVersions.checkedAt).toLocaleString()}. Installed values are from the hardware scan above; rescan after installing updates.` : 'Checks run only when requested. No serial numbers or full device instance IDs are sent to manufacturer lookups.'}</p>{shownVersions?.windowsUpdateError && <p className="fine-print">Windows Update unavailable: {shownVersions.windowsUpdateError}</p>}</section>
-        <HardwareParts report={report} openSource={openSource} versions={shownVersions} checking={checkingVersions} openRelease={openRelease}/>
+        <section className="panel component-check-controls">
+          <div><h3>Updates for every component</h3><p className="body-copy">Check graphics, processor drivers, motherboard/chipset drivers, peripherals and audio together or separately. BIOS, device firmware and manufacturer-only packages show the official support path when automatic version verification is unavailable.</p></div>
+          <div className="driver-toolbar">
+            <label className="field-label">WHAT TO CHECK<select aria-label="Update check scope" value={updateScope} disabled={checkingVersions || checkingUpdates || busy} onChange={e=>setUpdateScope(e.target.value)}><option>All components</option>{[...new Set(parts.map(c=>c.category))].map(c=><option key={c}>{c}</option>)}</select></label>
+            <button className="button primary" disabled={checkingVersions || busy || checkingUpdates || !scopeParts.length || !window.tweaker?.checkComponentUpdates} onClick={()=>checkVersions(updateScope==='All components' ? undefined : scopeParts.map(c=>c.id))}>{checkingVersions ? <LoaderCircle className="spin" size={17}/> : <Download size={17}/>} {updateScope==='All components' ? 'Check all hardware updates' : updateScope==='BIOS / UEFI' ? 'Review BIOS update sources' : 'Check selected components'}</button>
+            {checkingVersions && <button className="button secondary" onClick={async () => { try { await window.tweaker!.cancelComponentUpdates(); } catch(e) { setError(String(e)); } }}>Cancel version check</button>}
+          </div>
+          {scopeParts.some(c=>c.category==='Graphics' && /NVIDIA/i.test(c.name)) && <div className="driver-vendor-options"><label className="field-label">NVIDIA OPTIONS · GRAPHICS ONLY<select aria-label="NVIDIA release branch" value={branch} disabled={checkingVersions} onChange={e=>{++requestGeneration.current;setBranch(e.target.value as 'game-ready' | 'studio');}}><option value="game-ready">Game Ready · stable WHQL</option><option value="studio">Studio · non-beta</option></select></label></div>}
+          <p className="fine-print">Driver checks use exact device-matched Windows Update offers, which may lag manufacturer releases. NVIDIA GeForce also uses its official model/Windows catalog. A missing offer never confirms that a device is up to date.</p>
+          <p className="fine-print" role="status">{checkingVersions ? `Checking ${checkingIds.length || scopeParts.length} selected component(s). Other components keep their previous results. This can take up to two minutes.` : shownVersions ? `Latest check finished ${new Date(shownVersions.checkedAt).toLocaleString()}. Each result shows its own check time. Installed versions are from the hardware scan above.` : 'Choose all components, a category, or the check button on an individual card.'}</p>
+          {shownVersions?.windowsUpdateError && <p className="fine-print">Windows Update unavailable for the last check: {shownVersions.windowsUpdateError}</p>}
+        </section>
+        <HardwareParts report={report} openSource={openSource} versions={shownVersions} checking={checkingVersions} checkingIds={checkingIds} checksDisabled={checkingVersions || checkingUpdates || busy} check={id=>checkVersions([id])} openRelease={openRelease}/>
         <details className="panel driver-guides"><summary>Software & setup guides</summary><div className="driver-toolbar"><label className="field-label">DEVICE CATEGORY<select aria-label="Device category" value={filter} onChange={e => setFilter(e.target.value)}>{categories.map(c => <option key={c}>{c}</option>)}</select></label><label className="field-label">FIND HARDWARE OR SOFTWARE<input placeholder="Motherboard, Logitech, chipset…" value={query} onChange={e => setQuery(e.target.value)}/></label></div><div className="driver-cards">{cards.map(card => <article className="panel driver-card" key={card.id}><div className="section-heading"><span className="pill">{card.category}</span><span className="fine-print">{card.confidence}</span></div><h3>{card.title}</h3><strong className="driver-device">{card.device}</strong><p>{card.reason}</p><p className="fine-print">{card.note}</p>{card.source && <button className="button secondary" onClick={() => openSource(card.source!)}>{card.sourceName}<ArrowUpRight size={16}/></button>}</article>)}</div>{!cards.length && <p>No guides match this filter.</p>}</details>
       </>}</>}
       {view === 'Update offers' && <DriverOffers report={report} offers={visibleOffers(offers, report)} busy={checkingUpdates || checkingVersions} check={checkUpdates} cancel={async () => { try { if (checkingVersions) await window.tweaker!.cancelComponentUpdates(); else await window.tweaker!.cancelDriverUpdateCheck(); } catch (e) { setError(String(e)); } }} openLink={async (id, index) => { try { await window.tweaker!.openDriverUpdateLink(id, index); } catch (e) { setError(String(e)); } }}/>}

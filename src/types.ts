@@ -88,7 +88,8 @@ export interface DriverUpdateOffers {
 }
 export interface ComponentUpdateItem {
   componentId: string; installedVersion: string; installedRaw: string; latestVersion: string;
-  status: 'current' | 'newer' | 'ahead' | 'different' | 'unverified' | 'not-applicable' | 'offered';
+  status: 'current' | 'newer' | 'ahead' | 'different' | 'unverified' | 'not-applicable' | 'offered' | 'manual-required';
+  checkedAt?: string; windowsUpdateState?: 'complete' | 'partial' | 'unavailable' | 'not-checked';
   source: string; date: string; url: string; notes: string; message: string;
   packages: { deviceId: string; name: string; installedVersion: string; latestVersion: string; title: string; source: string; date: string; url: string; offerId: string; notes: string; comparison: number | null }[];
 }
@@ -111,8 +112,8 @@ declare global {
       getHardwareMemory(): Promise<HardwareMemory>;
       forgetHardwareMemory(): Promise<HardwareMemory>;
       scanDrivers(): Promise<DriverReport>;
-      checkComponentUpdates(branch: 'game-ready' | 'studio'): Promise<ComponentUpdateReport>;
-      getComponentUpdateStatus(): Promise<{ checking: boolean; result: ComponentUpdateReport | null }>;
+      checkComponentUpdates(branch: 'game-ready' | 'studio', componentIds?: string[]): Promise<ComponentUpdateReport>;
+      getComponentUpdateStatus(): Promise<{ checking: boolean; result: ComponentUpdateReport | null; componentIds?: string[] }>;
       cancelComponentUpdates(): Promise<void>;
       openComponentRelease(id: string): Promise<void>;
       getDriverHistory(): Promise<DriverHistory>;

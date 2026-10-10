@@ -1,6 +1,6 @@
 # Hardware versions, update offers and change history
 
-In **Drivers & devices**, choose **Scan drivers & devices → Check latest versions**. Visible groups are graphics, processors, motherboard, BIOS/UEFI, peripherals and audio. Models and installed versions come from this PC's Windows reports, with no reference build. Multiple GPUs and CPU sockets are supported when reported. Unknown vendors and missing fields remain unidentified. Miscellaneous Windows records are hidden from the view, but retained in diagnostic inventory and exports.
+In **Drivers & devices**, choose **Scan drivers & devices → Check all hardware updates**. Visible groups are graphics, processors, motherboard, BIOS/UEFI, peripherals and audio. Models and installed versions come from this PC's Windows reports, with no reference build. Multiple GPUs and CPU sockets are supported when reported. Unknown vendors and missing fields remain unidentified. Miscellaneous Windows records are hidden from the view, but retained in diagnostic inventory and exports.
 
 ## Installed and latest available
 
@@ -13,9 +13,9 @@ In **Drivers & devices**, choose **Scan drivers & devices → Check latest versi
 | BIOS / UEFI | Actual SMBIOS firmware version and date | Manufacturer/OEM support page. Automatic latest firmware verification is not included. A Windows firmware package's driver version is not treated as the BIOS version. |
 | Peripherals / audio | Identified Windows device-driver versions | Exact Windows Update matches plus recognized manufacturer links. These are separate from device firmware and optional control-app versions. |
 
-Every comparison uses the displayed native scan (including a dated saved scan); the renderer cannot submit a different PC's report or an arbitrary lookup URL. Rescan after hardware, OS or driver changes before comparing installed versions. Exact product/hardware IDs, OS, branch and laptop/desktop distinctions matter. Unknown or ambiguous models fail closed. Changing the NVIDIA branch or rescanning hides old comparisons. Rechecking clears stale results, cancellation does not commit partial results, and one failed provider does not erase another provider's verified result.
+Every comparison uses the displayed native scan (including a dated saved scan); the renderer cannot submit a different PC's report or an arbitrary lookup URL. Rescan after hardware, OS or driver changes before comparing installed versions. Exact product/hardware IDs, OS, branch and laptop/desktop distinctions matter. Unknown or ambiguous models fail closed. Changing the NVIDIA branch or rescanning hides old comparisons. A component-scoped recheck invalidates only its requested components; unrelated results keep their own check timestamps. Cancellation does not commit partial results, and one failed provider does not erase another provider's verified result.
 
-Manufacturer metadata is requested only after **Check latest versions**. Requests have an exact-host allowlist, HTTPS, time and size limits, no redirects/cookies, and no executable downloads. Manufacturer lookups send catalog model/OS/branch identifiers, not serial numbers or full instance IDs. Release notes are rendered as plain text. The retained latest check is in memory until another check/app exit and can be exported with its timestamp. Exact public NVIDIA site contracts can change; failures stay unverified rather than marking a device up to date.
+Manufacturer metadata is requested only after an explicit hardware update check. Requests have an exact-host allowlist, HTTPS, time and size limits, no redirects/cookies, and no executable downloads. Manufacturer lookups send catalog model/OS/branch identifiers, not serial numbers or full instance IDs. Release notes are rendered as plain text. The retained latest check is in memory until another check/app exit and can be exported with its timestamp. Exact public NVIDIA site contracts can change; failures stay unverified rather than marking a device up to date.
 
 MSI's public BIOS web catalog was investigated, but automated requests returned HTTP 403 in Windows validation. Its unverified parser is not shipped. Other manufacturer-only catalogs also remain manual until their exact matching and current response contracts are verified. This is deliberately **not universal manufacturer-latest coverage**: AMD/Intel/OEM GPU packages, chipset bundles, BIOS, peripheral firmware and utilities can be newer than—or absent from—Windows Update.
 
@@ -69,3 +69,12 @@ Windows CI separately validates real CIM queries, baseline persistence and a sec
 Starting in v0.7.2, successful manual scans are remembered locally across launches. Drivers & devices restores its component cards and installed versions with a **Saved driver scan** timestamp. These are last-observed values, not a fresh installed-version check. Rescan after changing parts, Windows, firmware or drivers. Online release results are not persisted, and restoring a scan does not trigger an online lookup.
 
 The cache is separate from change history and is tied to the Windows installation. **PC scanner → Forget saved scan** removes remembered hardware reports while retaining driver change history. Background history monitoring does not silently refresh the displayed cards or this cache. Every benchmark still scans hardware independently.
+
+
+## Checking individual components (v0.7.3)
+
+The **What to check** selector covers all displayed components or one category: graphics, processor, motherboard, BIOS/UEFI, peripherals and audio. Every card has its own update control. Native checks accept only identifiers from the loaded native scan; a processor, platform, audio or peripheral check cannot trigger an unrelated NVIDIA lookup. Windows Update still performs its PC-wide applicability search, then results are matched to the selected devices only.
+
+Processor and motherboard cards show individual Windows processor/chipset/platform driver versions and matched offers. They do not invent one CPU or board package version. Failed, partial, unmatched and manual checks remain distinct; none confirms manufacturer-latest status. Each retained result has its own timestamp.
+
+**Review BIOS update sources** shows the installed SMBIOS version and explains how to compare releases on the exact motherboard/OEM support page. It does not claim to have queried a BIOS catalog or substitute a Windows firmware-driver version. Unsupported/unknown manufacturer sources stay unverified. The NVIDIA branch control is a graphics-only option, separate from the hardware category selector.

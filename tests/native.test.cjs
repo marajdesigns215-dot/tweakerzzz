@@ -276,3 +276,11 @@ test('update installation is blocked during FPS recording, color recovery, and d
   assert.equal((await h.invoke('tweaker:update-status')).phase, 'installing');
   close.resolve(); await install; assert.equal(engine.installs, 1);
 });
+
+test('component-scoped update IPC forwards selected IDs with the native scan, never a renderer-supplied report',async()=>{
+  const h=await nativeHarness();const report=await h.invoke('tweaker:drivers');let received;
+  h.componentUpdates.check=async(...args)=>{received=args;return {items:[]};};
+  await h.invoke('tweaker:component-update-check','studio',['selected-audio']);
+  assert.deepEqual(received,[report,'studio',['selected-audio']]);
+  received=null;await assert.rejects(h.invokeAs('tweaker:component-update-check',{sender:{},senderFrame:{}},'game-ready',['selected-audio']),/Untrusted/);assert.equal(received,null);
+});

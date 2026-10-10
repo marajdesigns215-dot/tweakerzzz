@@ -1,6 +1,14 @@
-Download **Tweakerzzz-Setup-0.7.2-x64.exe** below. Quit the old app including its tray icon, then run the installer. No Node/npm or PowerShell launch commands are needed.
+Download **Tweakerzzz-Setup-0.7.3-x64.exe** below. Quit the old app including its tray icon, then run the installer. No Node/npm or PowerShell launch commands are needed.
 
-**New in v0.7.2: your PC is remembered between launches.**
+**New in v0.7.3: update controls for every displayed component.**
+
+In **Drivers & devices**, choose **What to check → All components**, select a hardware category, or use a card's individual check button. Graphics, processor drivers, motherboard/chipset drivers, peripherals and audio use exact device-matched Windows Update offers. NVIDIA's manufacturer release branch is now clearly a graphics-only option.
+
+**BIOS / UEFI → Review BIOS update sources** displays the installed BIOS version and directs you to the recognized manufacturer's support page for exact-model/revision verification. Automatic latest BIOS verification is not available. Peripheral firmware, control apps and manufacturer-only chipset packages can also require manual verification. No drivers or firmware are installed by these checks.
+
+Each checked component has its own timestamp. Checking one part preserves other results; failed, partial and unavailable sources never imply that the latest manufacturer version is installed. Validation covers all six categories, unknown vendors, mixed hardware, scoped requests, retained results, cancellation, invalid component IDs, responsive controls and the installed Windows app.
+
+**Included from v0.7.2: your PC is remembered between launches.**
 
 Run a PC, Drivers & devices, or peripheral scan once in this version. Successful native reports are saved locally and load on the next launch. Drivers & devices also retains its report when you switch tabs. The app shows **Using a saved scan** and the original scan date; rescan after changing parts or drivers. Latest-version checks stay manual and compare against the displayed installed-version scan.
 
@@ -10,7 +18,7 @@ FPS recordings still read fresh hardware/settings, and Windows tweak detection r
 
 **Included from v0.7.1: installed and available driver versions for the PC being scanned.**
 
-Open **Drivers & devices → Scan drivers & devices → Check latest versions**.
+Open **Drivers & devices → Scan drivers & devices → Check all hardware updates**.
 
 - The view now contains graphics, processors, motherboard, BIOS/UEFI, peripherals and audio. Miscellaneous device records are hidden. Chipset/platform driver versions appear inside the motherboard card.
 - Compare installed versions with exact device-matched Windows Update offers across vendors. Each result identifies its source; no offers never means the latest manufacturer release is verified.
